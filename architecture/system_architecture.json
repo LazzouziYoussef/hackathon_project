@@ -1,0 +1,99 @@
+{
+  "project": {
+    "name": "Sadaqa Tech",
+    "category": "Infrastructure monitoring and predictive scaling",
+    "context": "Hackathon MVP",
+    "users": ["NGO admin", "NGO technical operator"]
+  },
+  "tech_stack": {
+    "frontend": {
+      "framework": "React",
+      "language": "TypeScript",
+      "charts": "Recharts",
+      "auth": "JWT stored in HTTP-only cookies"
+    },
+    "backend": {
+      "api": {
+        "framework": "FastAPI",
+        "language": "Python 3.11",
+        "validation": "Pydantic",
+        "auth": "OAuth2 compatible JWT"
+      },
+      "ml_services": {
+        "language": "Python",
+        "libraries": ["scikit-learn", "TensorFlow", "NumPy", "Pandas"]
+      }
+    },
+    "infrastructure": {
+      "containerization": "Docker",
+      "orchestration": "Kubernetes 1.28",
+      "autoscaling": "HorizontalPodAutoscaler",
+      "ingress": "NGINX Ingress Controller"
+    },
+    "data": {
+      "time_series_db": "TimescaleDB",
+      "relational_db": "PostgreSQL",
+      "cache": "Redis"
+    },
+    "observability": {
+      "metrics": "Prometheus",
+      "dashboards": "Grafana",
+      "logging": "Fluentd",
+      "alerts": "Alertmanager"
+    },
+    "streaming": {
+      "message_broker": "Apache Kafka"
+    },
+    "ci_cd": {
+      "source_control": "GitHub",
+      "pipelines": "GitHub Actions",
+      "deployment": "ArgoCD"
+    },
+    "security": {
+      "secrets": "Kubernetes Secrets",
+      "encryption": ["TLS", "AES-256"],
+      "api_gateway": "Kong"
+    },
+    "iac": {
+      "tool": "Terraform",
+      "state_backend": "Remote backend"
+    },
+    "demo_tools": {
+      "load_testing": "Locust",
+      "traffic_simulation": "Custom Python generator"
+    }
+  },
+  "tenancy": {
+    "model": "multi-tenant",
+    "isolation": {
+      "application": "tenant_id enforced at API layer",
+      "database": "row-level security",
+      "dashboards": "query scoping"
+    }
+  },
+  "ml_pipeline": {
+    "models": ["seasonal_baseline", "lstm_forecast"],
+    "training_schedule": "daily",
+    "fallback": "seasonal_baseline",
+    "confidence_threshold": 0.7
+  },
+  "scaling_logic": {
+    "mode": "recommendation-first",
+    "approval": "manual",
+    "limits": {
+      "max_replicas": 50,
+      "cooldown_minutes": 5
+    }
+  },
+  "security_controls": {
+    "rbac": "role-based",
+    "audit_logs": "admin actions",
+    "rate_limiting": "API gateway enforced"
+  },
+  "out_of_scope": [
+    "payment processing",
+    "donor personal data",
+    "automatic cloud resource provisioning",
+    "multi-region replication"
+  ]
+}
