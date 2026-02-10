@@ -1,4 +1,4 @@
-# Implementation Plan: Sadaqa Tech (Hackathon MVP)
+# Implementation Plan: This project (Hackathon MVP)
 
 ## Overview
 

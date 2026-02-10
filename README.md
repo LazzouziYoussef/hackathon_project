@@ -1,4 +1,4 @@
-# Sadaqa Tech
+# This project
 
 [![Hackathon Status](https://img.shields.io/badge/Status-Skeleton-orange?style=flat-square)](https://github.com)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
@@ -15,8 +15,6 @@
 
 An AI-assisted infrastructure monitoring and predictive scaling system for charitable platforms during predictable high-traffic religious events.
 
-**Hackathon:** RamadanIA Hackathon 2026 | **Location:** Morocco | **Status:** Hackathon MVP
-
 ---
 
 ## Core Principle
@@ -25,7 +23,7 @@ An AI-assisted infrastructure monitoring and predictive scaling system for chari
 
 ### One-Sentence Definition
 
-Sadaqa Tech is a read-only infrastructure observability system that predicts short-term traffic surges during Ramadan and produces guarded scaling recommendations that require human approval.
+This project is a read-only infrastructure observability system that predicts short-term traffic surges during Ramadan and produces guarded scaling recommendations that require human approval.
 
 ---
 
@@ -74,7 +72,7 @@ Shift reaction **earlier in time** through:
 
 ## System Architecture
 
-Sadaqa Tech operates as a five-layer pipeline:
+This project operates as a five-layer pipeline:
 
 ```
 ┌─────────────┐
@@ -93,55 +91,6 @@ Sadaqa Tech operates as a five-layer pipeline:
 ### Key Constraint
 
 **Data never flows backward.** Scaling actions log telemetry; they do not influence predictions.
-
-### Architecture Diagram
-
-```mermaid
-graph TD
-    %% Nodes
-    subgraph "External Sources"
-        Sim[Traffic Simulator / Agents]
-    end
-
-    subgraph "Sadaqa Tech Core"
-        UI[React Dashboard]
-        API[FastAPI Backend]
-        DB[(TimescaleDB & Postgres)]
-        ML[ML Engine / Forecaster]
-    end
-
-    subgraph "Infrastructure Target"
-        K8s[Kubernetes Cluster]
-        HPA[Horizontal Pod Autoscaler]
-    end
-
-    User((NGO Admin))
-
-    %% Data Ingestion Flow
-    Sim -- "Push Metrics" --> API
-    API -- "Write Telemetry" --> DB
-
-    %% Prediction Flow
-    ML -- "Read History" --> DB
-    ML -- "Generate Forecast" --> ML
-    ML -- "Write Recommendation" --> DB
-
-    %% Human-in-the-Loop
-    DB -.-> API
-    API -- "Alert / Show Prediction" --> UI
-    UI -- "View & Analyze" --> User
-    User -- "APPROVE Action" --> UI
-    UI -- "POST /approve" --> API
-
-    %% Execution
-    API -- "Patch HPA Config" --> K8s
-    K8s -- "Scale Replicas" --> HPA
-
-    linkStyle 7,8 stroke:#FF0000,stroke-width:2px;
-    style User fill:#ffcc00;
-```
-
----
 
 ## Tech Stack
 
@@ -505,7 +454,9 @@ These principles override all technical preferences:
 
 ## 🛣️ Development Roadmap
 
-### Phase 1: MVP (Hackathon)
+### Phase 1: skeleton
+
+> > > > > > > 78d0ca1 (added: README file)
 
 - ✅ Metric ingestion (HTTP API)
 - ✅ Time-series storage (TimescaleDB)
@@ -581,4 +532,4 @@ This project is part of the **RamadanIA Hackathon 2026**.
 
 **Last Updated:** February 2026 | **Status:** Hackathon MVP, code scaffolding phase
 
-_"Sadaqa Tech exists to help charities act earlier, not gamble faster."_
+_"This project exists to help charities act earlier, not gamble faster."_
