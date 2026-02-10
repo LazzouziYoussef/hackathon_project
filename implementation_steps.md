@@ -1,7 +1,5 @@
 # Implementation Plan: Sadaqa Tech (Hackathon MVP)
 
-> Here is the comprehensive implementation_steps.md file. This guide assumes you are starting with a completely empty folder and takes you to a working MVP.
-
 ## Overview
 
 | Field         | Value                                                                      |
@@ -221,6 +219,6 @@ Phase 6: Integration & Polish
   - "The simulator enters Suhoor phase..."
   - "The system predicts a crash..."
   - "I click Approve..."
-  - ```
+  - "The system logs the scaling action."
 
     ```
