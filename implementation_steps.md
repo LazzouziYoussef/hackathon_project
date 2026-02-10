@@ -220,5 +220,3 @@ Phase 6: Integration & Polish
   - "The system predicts a crash..."
   - "I click Approve..."
   - "The system logs the scaling action."
-
-    ```
