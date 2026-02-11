@@ -55,6 +55,7 @@ This project is a read-only infrastructure observability system that predicts sh
 ## System Architecture (Planned)
 
 Five-layer pipeline:
+
 1. **Ingestion** - Metrics collection
 2. **Storage** - TimescaleDB + PostgreSQL + Redis
 3. **Analytics** - LSTM forecasts + seasonal baselines
@@ -68,7 +69,6 @@ Five-layer pipeline:
 ## License
 
 MIT License - See LICENSE file for details.
-
 
 | Component    | Technology              | Notes                      |
 | ------------ | ----------------------- | -------------------------- |
