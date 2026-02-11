@@ -1,19 +1,46 @@
-# This project
+# Sadaqa Tech - Operational Intelligence Layer
 
-[![Hackathon Status](https://img.shields.io/badge/Status-Skeleton-orange?style=flat-square)](https://github.com)
+[![Hackathon Status](https://img.shields.io/badge/Status-Architecture_Phase-orange?style=flat-square)](https://github.com)
+[![Implementation](https://img.shields.io/badge/Implementation-2%25-red?style=flat-square)](#current-state)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.11-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
-[![React](https://img.shields.io/badge/React-18+-blue?style=flat-square&logo=react&logoColor=white)](https://react.dev)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org)
-[![TimescaleDB](https://img.shields.io/badge/TimescaleDB-Latest-blue?style=flat-square&logo=data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBzdGFuZGFsb25lPSJubyI/Pg==)](https://www.timescale.com)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28+-blue?style=flat-square&logo=kubernetes&logoColor=white)](https://kubernetes.io)
-[![Docker](https://img.shields.io/badge/Docker-Latest-blue?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com)
 
 > **Operational Intelligence for NGO Infrastructure During Ramadan**
 
-An AI-assisted infrastructure monitoring and predictive scaling system for charitable platforms during predictable high-traffic religious events.
+A planned AI-assisted infrastructure monitoring and predictive scaling system for charitable platforms during high-traffic religious events.
+
+⚠️ **Current Status:** Architecture complete, implementation in progress.
+
+---
+
+## 📚 Documentation
+
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Start here! Quick commands and status overview
+- **[CURRENT_STATE.md](CURRENT_STATE.md)** - Detailed implementation status and roadmap
+- **[AUDIT_REPORT.md](AUDIT_REPORT.md)** - Technical audit and dependency analysis
+- **[CONTEXT.md](CONTEXT.md)** - Philosophy, constraints, and design decisions
+
+---
+
+## 🚀 Quick Start
+
+```bash
+# 1. Start infrastructure
+cd infra/docker
+docker-compose up -d
+
+# 2. Check services
+docker ps
+docker logs sadaqa-backend
+docker logs sadaqa-frontend
+
+# 3. Access services
+# Frontend: http://localhost:5173
+# Backend API: http://localhost:8000
+# API Docs: http://localhost:8000/docs
+```
+
+See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for detailed development commands.
 
 ---
 
@@ -21,142 +48,27 @@ An AI-assisted infrastructure monitoring and predictive scaling system for chari
 
 **Prediction before automation. No feature is acceptable if it hides failure modes or lacks human approval gates.**
 
-### One-Sentence Definition
-
 This project is a read-only infrastructure observability system that predicts short-term traffic surges during Ramadan and produces guarded scaling recommendations that require human approval.
 
 ---
 
-## The Problem
+## System Architecture (Planned)
 
-Charity platforms fail during Ramadan due to **delayed reaction to predictable traffic surges**.
+Five-layer pipeline:
+1. **Ingestion** - Metrics collection
+2. **Storage** - TimescaleDB + PostgreSQL + Redis
+3. **Analytics** - LSTM forecasts + seasonal baselines
+4. **Decision** - Rule-based recommendations
+5. **Execution** - Manual approval required
 
-### Observed Issues
-
-- Traffic increases follow recurring temporal patterns
-- Teams rely on reactive alerts (response happens _after_ degradation)
-- Scaling decisions happen too late
-- NGOs overprovision due to fear of failure
-- Infrastructure costs rise while reliability stays fragile
-
-### Our Solution
-
-Shift reaction **earlier in time** through:
-
-- **Observation:** Monitor metrics in real-time
-- **Prediction:** Forecast traffic surges 4+ hours ahead
-- **Recommendation:** Suggest scaling actions with full context
-- **Approval:** Require human sign-off before execution
-
-**The system does not scale automatically. It assists humans in making better, faster decisions.**
+**Key Constraint:** Data never flows backward. Scaling actions log telemetry but don't influence predictions.
 
 ---
 
-## Target Users
+## License
 
-### Primary Users
+MIT License - See LICENSE file for details.
 
-- **NGO Administrators** responsible for uptime decisions
-- **Technical Operators** managing deployments
-
-### Non-Users (Explicit Exclusions)
-
-- Donors
-- Payment providers
-- Marketing teams
-- End users of charity platforms
-
-**All interfaces, APIs, and outputs are admin-facing only.**
-
----
-
-## System Architecture
-
-This project operates as a five-layer pipeline:
-
-```
-┌─────────────┐
-│ Ingestion   │ Agents or HTTP APIs deliver metrics
-├─────────────┤
-│ Storage     │ TimescaleDB (time-series), PostgreSQL (state), Redis (cache)
-├─────────────┤
-│ Analytics   │ Seasonal baselines + LSTM forecasts (when confidence ≥ 0.7)
-├─────────────┤
-│ Decision    │ Rule-based logic (thresholds, cooldowns, cost caps)
-├─────────────┤
-│ Execution   │ Manual approval required → Kubernetes scaling
-└─────────────┘
-```
-
-### Key Constraint
-
-**Data never flows backward.** Scaling actions log telemetry; they do not influence predictions.
-
-## Tech Stack
-
-### Frontend
-
-| Component | Technology               | Notes                             |
-| --------- | ------------------------ | --------------------------------- |
-| Framework | React + TypeScript       | Modern, type-safe UI              |
-| Charts    | Recharts                 | Interactive traffic visualization |
-| Auth      | JWT in HTTP-only cookies | Secure token storage              |
-
-### Backend
-
-| Component     | Technology            | Notes                             |
-| ------------- | --------------------- | --------------------------------- |
-| API Framework | FastAPI + Pydantic    | Python 3.11, async-first          |
-| Validation    | Pydantic              | Schema validation at API boundary |
-| Auth          | OAuth2 compatible JWT | Tenant-scoped token validation    |
-
-### Machine Learning
-
-| Component | Technology                              | Notes                                              |
-| --------- | --------------------------------------- | -------------------------------------------------- |
-| Libraries | scikit-learn, TensorFlow, NumPy, Pandas | Python-based ML stack                              |
-| Baseline  | Seasonal averages                       | Fallback when LSTM confidence < 0.7                |
-| Primary   | LSTM forecast                           | Trained daily on 60+ days history, 24-hour horizon |
-
-### Data Layer
-
-| Component      | Technology  | Notes                                          |
-| -------------- | ----------- | ---------------------------------------------- |
-| Time-series DB | TimescaleDB | Optimized for metrics, with row-level security |
-| Relational DB  | PostgreSQL  | User, tenant, and decision logs                |
-| Cache          | Redis       | Optional caching layer                         |
-
-### Infrastructure & Observability
-
-| Component        | Technology      | Notes                               |
-| ---------------- | --------------- | ----------------------------------- |
-| Containerization | Docker          | Multi-service deployment            |
-| Orchestration    | Kubernetes 1.28 | NGINX Ingress, HPA for scaling      |
-| Metrics          | Prometheus      | System and business metrics         |
-| Dashboards       | Grafana         | Real-time visualization             |
-| Logging          | Fluentd         | Structured logs with tenant context |
-| Alerts           | Alertmanager    | Alert aggregation and routing       |
-| Message Broker   | Apache Kafka    | Event streaming (optional)          |
-
-### CI/CD & IaC
-
-| Component      | Technology     | Notes                            |
-| -------------- | -------------- | -------------------------------- |
-| Source Control | GitHub         | Version control                  |
-| Pipelines      | GitHub Actions | Automated testing and deployment |
-| Deployment     | ArgoCD         | GitOps-based deployments         |
-| IaC            | Terraform      | Cloud/K8s resource provisioning  |
-
-### Security
-
-| Component      | Technology            | Notes                                |
-| -------------- | --------------------- | ------------------------------------ |
-| Secrets        | Kubernetes Secrets    | No env vars in code                  |
-| Encryption     | TLS + AES-256 at rest | Data in transit and at rest          |
-| API Gateway    | Kong                  | Rate limiting and request validation |
-| Access Control | RBAC                  | Role-based access control            |
-
-### Testing & Simulation
 
 | Component    | Technology              | Notes                      |
 | ------------ | ----------------------- | -------------------------- |

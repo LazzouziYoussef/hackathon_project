@@ -1,0 +1,181 @@
+services:
+  # ── TimescaleDB ─────────────────────────────────────────────
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    container_name: sadaqa-timescaledb
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - timescaledb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sadaqa-network
+
+  # ── Redis ───────────────────────────────────────────────────
+  redis:
+    image: redis:alpine
+    container_name: sadaqa-redis
+    ports:
+      - "${REDIS_PORT}:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sadaqa-network
+
+  # ── FastAPI Backend (dev) ───────────────────────────────────
+  # Runtime: Python 3.11 + uvicorn installed IN the image
+  # Source:  bind-mounted from ../../backend → /app
+  # Reload:  --reload flag watches for file changes
+  backend:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.backend
+    container_name: sadaqa-backend
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: timescaledb
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM}
+      JWT_EXPIRATION_HOURS: ${JWT_EXPIRATION_HOURS}
+      API_HOST: ${API_HOST}
+      API_PORT: ${API_PORT}
+      API_ENV: ${API_ENV}
+      DEBUG: ${DEBUG}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      ML_CONFIDENCE_THRESHOLD: ${ML_CONFIDENCE_THRESHOLD}
+      ML_MAX_LOAD_MULTIPLIER: ${ML_MAX_LOAD_MULTIPLIER}
+      ML_MIN_LOAD_MULTIPLIER: ${ML_MIN_LOAD_MULTIPLIER}
+      K8S_MAX_REPLICAS: ${K8S_MAX_REPLICAS}
+      K8S_MIN_REPLICAS: ${K8S_MIN_REPLICAS}
+      K8S_COOLDOWN_MINUTES: ${K8S_COOLDOWN_MINUTES}
+      DEMO_TENANT_ID: ${DEMO_TENANT_ID}
+      DEMO_TENANT_NAME: ${DEMO_TENANT_NAME}
+      DEMO_TENANT_API_KEY: ${DEMO_TENANT_API_KEY}
+      LOG_LEVEL: ${LOG_LEVEL}
+      FEATURE_LSTM_FORECAST: ${FEATURE_LSTM_FORECAST}
+      FEATURE_SEASONAL_BASELINE: ${FEATURE_SEASONAL_BASELINE}
+      FEATURE_ANOMALY_DETECTION: ${FEATURE_ANOMALY_DETECTION}
+    ports:
+      - "${API_PORT}:8000"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ../../backend:/app
+    networks:
+      - sadaqa-network
+
+  # ── React Frontend (dev) ───────────────────────────────────
+  # Runtime: Node 18 + npm installed IN the image
+  # Source:  bind-mounted from ../../frontend → /app
+  # Reload:  Vite HMR watches for file changes
+  frontend:
+    build:
+      context: ../../
+      dockerfile: infra/docker/frontend/Dockerfile.frontend
+    container_name: sadaqa-frontend
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+      VITE_API_TIMEOUT_MS: ${VITE_API_TIMEOUT_MS}
+    ports:
+      - "${FRONTEND_PORT}:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ../../frontend:/app
+      - frontend_node_modules:/app/node_modules
+    networks:
+      - sadaqa-network
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+
+  # ── ML Engine (optional, --profile dev) ─────────────────────
+  ml-engine:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.ml
+    container_name: sadaqa-ml-engine
+    profiles:
+      - dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: timescaledb
+      POSTGRES_PORT: 5432
+      ML_CONFIDENCE_THRESHOLD: ${ML_CONFIDENCE_THRESHOLD}
+      ML_TRAINING_DAYS_HISTORY: ${ML_TRAINING_DAYS_HISTORY}
+      ML_FORECAST_HORIZON_HOURS: ${ML_FORECAST_HORIZON_HOURS}
+      ML_TRAINING_SCHEDULE: ${ML_TRAINING_SCHEDULE}
+      RAMADAN_START_DATE: ${RAMADAN_START_DATE}
+      RAMADAN_END_DATE: ${RAMADAN_END_DATE}
+      FEATURE_LSTM_FORECAST: ${FEATURE_LSTM_FORECAST}
+      FEATURE_SEASONAL_BASELINE: ${FEATURE_SEASONAL_BASELINE}
+      LOG_LEVEL: ${LOG_LEVEL}
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    volumes:
+      - ../../ml_engine:/app
+    networks:
+      - sadaqa-network
+
+  # ── Traffic Simulator (optional, --profile dev) ─────────────
+  simulator:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.simulator
+    container_name: sadaqa-simulator
+    profiles:
+      - dev
+    environment:
+      SIMULATOR_TARGET_URL: ${SIMULATOR_TARGET_URL}
+      SIMULATOR_TICK_INTERVAL_SECONDS: ${SIMULATOR_TICK_INTERVAL_SECONDS}
+      SIMULATOR_TIME_ACCELERATION: ${SIMULATOR_TIME_ACCELERATION}
+      SIMULATOR_RAMADAN_ENABLED: ${SIMULATOR_RAMADAN_ENABLED}
+      SIMULATOR_SUHOOR_MULTIPLIER: ${SIMULATOR_SUHOOR_MULTIPLIER}
+      SIMULATOR_IFTAR_MULTIPLIER: ${SIMULATOR_IFTAR_MULTIPLIER}
+      SIMULATOR_NORMAL_MULTIPLIER: ${SIMULATOR_NORMAL_MULTIPLIER}
+      SIMULATOR_NIGHT_MULTIPLIER: ${SIMULATOR_NIGHT_MULTIPLIER}
+      DEMO_TENANT_ID: ${DEMO_TENANT_ID}
+      DEMO_TENANT_API_KEY: ${DEMO_TENANT_API_KEY}
+      LOG_LEVEL: ${LOG_LEVEL}
+    depends_on:
+      - backend
+    volumes:
+      - ../../simulator:/app
+    networks:
+      - sadaqa-network
+
+volumes:
+  timescaledb_data:
+  redis_data:
+  frontend_node_modules:
+
+networks:
+  sadaqa-network:
+    driver: bridge
