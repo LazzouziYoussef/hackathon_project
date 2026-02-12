@@ -4,6 +4,7 @@ from datetime import datetime
 import sys
 import os
 
+# Add ml_engine to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from models.pattern_learner import RamadanPatternLearner
@@ -169,6 +170,20 @@ def test_empty_data_handling():
     learner.learn_surge_patterns(df)
     learner.learn_daily_progression(df)
     
-    # Should handle gracefully without crashing
-    assert len(learner.surge_patterns) >= 0
-    assert len(learner.daily_patterns) >= 0
+    # Verify graceful handling of non-Ramadan data
+    # No Ramadan data means no surge patterns or daily patterns learned
+    assert len(learner.surge_patterns) == 0, "Should have no surge patterns for non-Ramadan data"
+    assert len(learner.daily_patterns) == 0, "Should have no daily patterns for non-Ramadan data"
+    
+    # get_day_adjustment_factor should return default values
+    assert learner.get_day_adjustment_factor(5) == learner.DEFAULT_FACTORS['early']
+    assert learner.get_day_adjustment_factor(15) == learner.DEFAULT_FACTORS['mid']
+    assert learner.get_day_adjustment_factor(25) == learner.DEFAULT_FACTORS['last_10']
+    
+    # get_pattern_summary should return valid structure with defaults
+    summary = learner.get_pattern_summary()
+    assert 'surge_patterns' in summary
+    assert 'daily_progression' in summary
+    assert 'total_days_analyzed' in summary
+    assert summary['total_days_analyzed'] == 0
+    assert summary['surge_patterns'] == {}

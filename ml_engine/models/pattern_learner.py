@@ -10,6 +10,20 @@ class RamadanPatternLearner:
     daily progression factors showing how traffic evolves throughout Ramadan.
     """
     
+    # Configurable class constants
+    SURGE_WINDOWS = {
+        'suhoor': (3, 5),
+        'iftar': (18, 20),
+        'taraweeh': (20, 22)
+    }
+    BASELINE_WINDOW = (10, 14)  # Midday baseline hours
+    SURGE_THRESHOLD = 1.5  # Multiplier for surge detection
+    DEFAULT_FACTORS = {
+        'early': 1.0,
+        'mid': 1.1,
+        'last_10': 1.25
+    }
+    
     def __init__(self):
         self.surge_patterns = {}
         self.daily_patterns = {}
@@ -26,13 +40,7 @@ class RamadanPatternLearner:
         """
         ramadan_data = df[df['is_ramadan'] == 1].copy()
         
-        surge_windows = {
-            'suhoor': (3, 5),
-            'iftar': (18, 20),
-            'taraweeh': (20, 22)
-        }
-        
-        for event_name, (start_hour, end_hour) in surge_windows.items():
+        for event_name, (start_hour, end_hour) in self.SURGE_WINDOWS.items():
             window_data = ramadan_data[
                 (ramadan_data['hour'] >= start_hour) & 
                 (ramadan_data['hour'] <= end_hour)
@@ -43,8 +51,8 @@ class RamadanPatternLearner:
             
             # Calculate baseline (midday traffic)
             baseline = ramadan_data[
-                (ramadan_data['hour'] >= 10) & 
-                (ramadan_data['hour'] <= 14)
+                (ramadan_data['hour'] >= self.BASELINE_WINDOW[0]) & 
+                (ramadan_data['hour'] <= self.BASELINE_WINDOW[1])
             ]['value'].median()
             
             if baseline == 0:
@@ -65,10 +73,19 @@ class RamadanPatternLearner:
                     multiplier = peak / baseline
                     multipliers.append(multiplier)
                 
-                # Calculate surge duration (minutes above 1.5x baseline)
-                above_threshold = day_data[day_data['value'] > baseline * 1.5]
+                # Calculate surge duration (minutes above threshold)
+                above_threshold = day_data[day_data['value'] > baseline * self.SURGE_THRESHOLD]
                 if len(above_threshold) > 0:
-                    duration = len(above_threshold)
+                    # Calculate actual duration in minutes using datetime index
+                    if len(above_threshold) > 1:
+                        time_diff = (above_threshold.index[-1] - above_threshold.index[0]).total_seconds() / 60
+                        duration = time_diff + (above_threshold.index[1] - above_threshold.index[0]).total_seconds() / 60
+                    else:
+                        # Single data point - use sampling interval if available
+                        if len(day_data) > 1:
+                            duration = (day_data.index[1] - day_data.index[0]).total_seconds() / 60
+                        else:
+                            duration = 1.0  # Fallback to 1 minute
                     durations.append(duration)
             
             self.surge_patterns[event_name] = {
@@ -104,7 +121,8 @@ class RamadanPatternLearner:
             
             # Calculate baseline for this day
             midday_data = day_data[
-                (day_data['hour'] >= 10) & (day_data['hour'] <= 14)
+                (day_data['hour'] >= self.BASELINE_WINDOW[0]) & 
+                (day_data['hour'] <= self.BASELINE_WINDOW[1])
             ]
             baseline_traffic = midday_data['value'].median() if len(midday_data) > 0 else day_data['value'].median()
             
@@ -132,35 +150,49 @@ class RamadanPatternLearner:
         if ramadan_day not in self.daily_patterns:
             # Default progression based on typical Ramadan patterns
             if ramadan_day <= 10:
-                return 1.0
+                return self.DEFAULT_FACTORS['early']
             elif ramadan_day <= 20:
-                return 1.1
+                return self.DEFAULT_FACTORS['mid']
             else:
-                return 1.25
+                return self.DEFAULT_FACTORS['last_10']
         
         early_days = [d for d in self.daily_patterns.keys() if d <= 10]
+        mid_days = [d for d in self.daily_patterns.keys() if 11 <= d <= 20]
         late_days = [d for d in self.daily_patterns.keys() if d >= 21]
         
-        if not early_days or not late_days:
-            return 1.0
-        
-        early_avg = np.mean([self.daily_patterns[d]['avg_traffic'] for d in early_days])
-        
+        # Use whatever data is available
         if ramadan_day <= 10:
+            if not early_days:
+                return self.DEFAULT_FACTORS['early']
             current_avg = np.mean([self.daily_patterns[d]['avg_traffic'] for d in early_days if d <= ramadan_day])
+            baseline_avg = np.mean([self.daily_patterns[d]['avg_traffic'] for d in early_days])
         elif ramadan_day <= 20:
-            mid_days = [d for d in self.daily_patterns.keys() if 11 <= d <= 20]
-            if mid_days:
-                current_avg = np.mean([self.daily_patterns[d]['avg_traffic'] for d in mid_days if d <= ramadan_day])
+            if not mid_days:
+                if early_days:
+                    # Use early days as baseline
+                    baseline_avg = np.mean([self.daily_patterns[d]['avg_traffic'] for d in early_days])
+                    current_avg = baseline_avg * self.DEFAULT_FACTORS['mid']
+                else:
+                    return self.DEFAULT_FACTORS['mid']
             else:
-                return 1.0
+                current_avg = np.mean([self.daily_patterns[d]['avg_traffic'] for d in mid_days if d <= ramadan_day])
+                baseline_avg = np.mean([self.daily_patterns[d]['avg_traffic'] for d in early_days]) if early_days else current_avg
         else:
-            current_avg = np.mean([self.daily_patterns[d]['avg_traffic'] for d in late_days if d <= ramadan_day])
+            if not late_days:
+                if early_days:
+                    # Use early days as baseline
+                    baseline_avg = np.mean([self.daily_patterns[d]['avg_traffic'] for d in early_days])
+                    current_avg = baseline_avg * self.DEFAULT_FACTORS['last_10']
+                else:
+                    return self.DEFAULT_FACTORS['last_10']
+            else:
+                current_avg = np.mean([self.daily_patterns[d]['avg_traffic'] for d in late_days if d <= ramadan_day])
+                baseline_avg = np.mean([self.daily_patterns[d]['avg_traffic'] for d in early_days]) if early_days else current_avg
         
-        if early_avg == 0:
-            return 1.0
+        if baseline_avg == 0:
+            return self.DEFAULT_FACTORS['early']
         
-        return current_avg / early_avg
+        return current_avg / baseline_avg
     
     def _calculate_confidence(self, multipliers):
         """Calculate confidence score based on variance in multipliers.
@@ -174,10 +206,17 @@ class RamadanPatternLearner:
         if len(multipliers) < 3:
             return 0.6
         
-        mean = np.mean(multipliers)
-        std = np.std(multipliers)
+        # Filter out NaN values
+        clean_multipliers = [m for m in multipliers if not np.isnan(m)]
         
-        if mean == 0:
+        if len(clean_multipliers) < 3:
+            return 0.6
+        
+        mean = np.mean(clean_multipliers)
+        std = np.std(clean_multipliers)
+        
+        # Handle NaN in computed stats
+        if np.isnan(mean) or np.isnan(std) or mean == 0:
             return 0.6
         
         # Coefficient of variation
