@@ -45,7 +45,6 @@ jobs:
     if: needs.detect-changes.outputs.python == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
-    id: python-lint
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
@@ -70,7 +69,6 @@ jobs:
     if: needs.detect-changes.outputs.javascript == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
-    id: js-lint
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
