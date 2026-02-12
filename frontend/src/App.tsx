@@ -26,7 +26,7 @@ function App() {
         </p>
       </div>
       <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
+        Click on the <p onClick={() => setCount((count) => count - 1)}>V</p>ite and <p onClick={() => setCount(0)}>R</p>eact logos to learn more
       </p>
     </>
   )
