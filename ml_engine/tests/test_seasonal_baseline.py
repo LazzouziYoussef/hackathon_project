@@ -9,10 +9,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from models.seasonal_baseline import SeasonalBaselineModel
 from preprocessing.feature_engineering import FeatureEngineer
 
+# Ensure deterministic randomness for reproducible tests
+np.random.seed(42)
 
-def test_seasonal_baseline_training():
-    """Test that the model can be trained on Ramadan data."""
-    dates = pd.date_range(start='2026-03-01', periods=1440*7, freq='1T')
+
+def _build_ramadan_df(
+    start: str = "2026-03-01",
+    minutes: int = 1440 * 3,  # 3 days for faster tests
+    year: int = 2026,
+) -> pd.DataFrame:
+    """Build a synthetic Ramadan-like dataframe with engineered features.
+    
+    Shared between training/prediction/multiplier tests to keep test
+    setup consistent and avoid duplication.
+    """
+    dates = pd.date_range(start=start, periods=minutes, freq="1T")
     
     # Generate synthetic Ramadan traffic with patterns
     traffic = []
@@ -27,42 +38,54 @@ def test_seasonal_baseline_training():
         
         traffic.append(base + np.random.normal(0, 10))
     
-    df = pd.DataFrame({'value': traffic}, index=dates)
+    df = pd.DataFrame({"value": traffic}, index=dates)
     
-    # Add features needed for training
+    # Add features needed for training/prediction
     engineer = FeatureEngineer()
     df = engineer.add_time_features(df)
-    df = engineer.add_ramadan_features(df, year=2026)
+    df = engineer.add_ramadan_features(df, year=year)
+    return df
+
+
+def _build_predictable_pattern_df(
+    start: str = "2026-03-01",
+    minutes: int = 1440 * 3,  # 3 days for faster tests
+    year: int = 2026,
+) -> pd.DataFrame:
+    """Build a synthetic dataframe with predictable low-variance patterns.
     
-    # Train model
+    Used for confidence scoring tests where we need low variance.
+    """
+    dates = pd.date_range(start=start, periods=minutes, freq="1T")
+    
+    traffic = []
+    for date in dates:
+        hour = date.hour
+        base = 100 + hour * 10  # Predictable linear pattern
+        traffic.append(base + np.random.normal(0, 5))  # Low variance
+    
+    df = pd.DataFrame({"value": traffic}, index=dates)
+    
+    engineer = FeatureEngineer()
+    df = engineer.add_time_features(df)
+    df = engineer.add_ramadan_features(df, year=year)
+    return df
+
+
+def test_seasonal_baseline_training():
+    """Test that the model can be trained on Ramadan data."""
+    df = _build_ramadan_df()
+    
     model = SeasonalBaselineModel()
     model.train(df)
     
     assert model.is_trained
     assert len(model.patterns) == 24  # All 24 hours
-    print("✅ Model trains successfully on Ramadan data")
 
 
 def test_seasonal_baseline_prediction():
     """Test that the model can make predictions."""
-    dates = pd.date_range(start='2026-03-01', periods=1440*7, freq='1T')
-    
-    traffic = []
-    for date in dates:
-        hour = date.hour
-        if 3 <= hour <= 5:
-            base = 400
-        elif 18 <= hour <= 20:
-            base = 500
-        else:
-            base = 100
-        traffic.append(base + np.random.normal(0, 10))
-    
-    df = pd.DataFrame({'value': traffic}, index=dates)
-    
-    engineer = FeatureEngineer()
-    df = engineer.add_time_features(df)
-    df = engineer.add_ramadan_features(df, year=2026)
+    df = _build_ramadan_df()
     
     model = SeasonalBaselineModel()
     model.train(df)
@@ -72,36 +95,17 @@ def test_seasonal_baseline_prediction():
     prediction = model.predict(test_time, baseline_traffic=100)
     
     assert prediction > 100  # Should predict higher traffic during suhoor
-    print(f"✅ Suhoor prediction: {prediction:.1f} (baseline: 100)")
     
     # Test prediction for iftar time
     test_time_iftar = datetime(2026, 3, 8, 19, 0)
     prediction_iftar = model.predict(test_time_iftar, baseline_traffic=100)
     
     assert prediction_iftar > 100  # Should predict higher traffic during iftar
-    print(f"✅ Iftar prediction: {prediction_iftar:.1f} (baseline: 100)")
 
 
 def test_seasonal_baseline_multipliers():
     """Test that multipliers are calculated correctly."""
-    dates = pd.date_range(start='2026-03-01', periods=1440*7, freq='1T')
-    
-    traffic = []
-    for date in dates:
-        hour = date.hour
-        if 3 <= hour <= 5:
-            base = 400
-        elif 18 <= hour <= 20:
-            base = 500
-        else:
-            base = 100
-        traffic.append(base + np.random.normal(0, 10))
-    
-    df = pd.DataFrame({'value': traffic}, index=dates)
-    
-    engineer = FeatureEngineer()
-    df = engineer.add_time_features(df)
-    df = engineer.add_ramadan_features(df, year=2026)
+    df = _build_ramadan_df()
     
     model = SeasonalBaselineModel()
     model.train(df)
@@ -109,34 +113,19 @@ def test_seasonal_baseline_multipliers():
     # Suhoor hours should have high multiplier
     suhoor_multiplier = model.get_multiplier(4)
     assert suhoor_multiplier > 1.0
-    print(f"✅ Suhoor multiplier: {suhoor_multiplier:.2f}x")
     
     # Iftar hours should have high multiplier
     iftar_multiplier = model.get_multiplier(19)
     assert iftar_multiplier > 1.0
-    print(f"✅ Iftar multiplier: {iftar_multiplier:.2f}x")
     
     # Midday should have lower multiplier
     midday_multiplier = model.get_multiplier(12)
     assert midday_multiplier < suhoor_multiplier
-    print(f"✅ Midday multiplier: {midday_multiplier:.2f}x")
 
 
 def test_seasonal_baseline_confidence():
     """Test confidence scoring."""
-    dates = pd.date_range(start='2026-03-01', periods=1440*7, freq='1T')
-    
-    traffic = []
-    for date in dates:
-        hour = date.hour
-        base = 100 + hour * 10  # Predictable pattern
-        traffic.append(base + np.random.normal(0, 5))  # Low variance
-    
-    df = pd.DataFrame({'value': traffic}, index=dates)
-    
-    engineer = FeatureEngineer()
-    df = engineer.add_time_features(df)
-    df = engineer.add_ramadan_features(df, year=2026)
+    df = _build_predictable_pattern_df()
     
     model = SeasonalBaselineModel()
     model.train(df)
@@ -144,29 +133,11 @@ def test_seasonal_baseline_confidence():
     # Confidence should be high for predictable patterns
     confidence = model.get_confidence(12)
     assert 0.5 <= confidence <= 0.99
-    print(f"✅ Confidence score: {confidence:.2%}")
 
 
 def test_seasonal_baseline_summary():
     """Test pattern summary generation."""
-    dates = pd.date_range(start='2026-03-01', periods=1440*7, freq='1T')
-    
-    traffic = []
-    for date in dates:
-        hour = date.hour
-        if 3 <= hour <= 5:
-            base = 400
-        elif 18 <= hour <= 20:
-            base = 500
-        else:
-            base = 100
-        traffic.append(base + np.random.normal(0, 10))
-    
-    df = pd.DataFrame({'value': traffic}, index=dates)
-    
-    engineer = FeatureEngineer()
-    df = engineer.add_time_features(df)
-    df = engineer.add_ramadan_features(df, year=2026)
+    df = _build_ramadan_df()
     
     model = SeasonalBaselineModel()
     model.train(df)
@@ -180,12 +151,6 @@ def test_seasonal_baseline_summary():
     
     assert summary['hours_covered'] == 24
     assert len(summary['peak_hours']) == 5
-    
-    print("✅ Pattern summary:")
-    print(f"   Hours covered: {summary['hours_covered']}")
-    print(f"   Peak hours: {summary['peak_hours']}")
-    print(f"   Avg confidence: {summary['avg_confidence']:.2%}")
-    print(f"   Total samples: {summary['total_samples']}")
 
 
 def test_no_ramadan_data_error():
@@ -204,14 +169,3 @@ def test_no_ramadan_data_error():
         assert False, "Should raise ValueError for no Ramadan data"
     except ValueError as e:
         assert "No Ramadan data" in str(e)
-        print("✅ Raises clear error when no Ramadan data available")
-
-
-if __name__ == "__main__":
-    test_seasonal_baseline_training()
-    test_seasonal_baseline_prediction()
-    test_seasonal_baseline_multipliers()
-    test_seasonal_baseline_confidence()
-    test_seasonal_baseline_summary()
-    test_no_ramadan_data_error()
-    print("\n✅ All seasonal baseline tests passed")
