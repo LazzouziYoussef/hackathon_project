@@ -28,9 +28,12 @@ class MetricsDataLoader:
         return df
     
     def resample_to_minutely(self, df):
-        return df.resample('1T').mean().fillna(method='ffill')
+        return df.resample('1T').mean().ffill()
     
     def validate_data_quality(self, df):
+        if len(df) == 0:
+            raise ValueError("No data available for given parameters")
+        
         missing_pct = df['value'].isna().sum() / len(df) * 100
         
         if missing_pct > 20:
