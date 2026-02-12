@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 from tests import test_preprocessing
 from tests import test_feature_engineering
 from tests import test_seasonal_baseline
+from tests import test_pattern_learning
 
 
 def run_test_module(module, module_name):
@@ -51,6 +52,7 @@ def main():
     all_passed &= run_test_module(test_preprocessing, "test_preprocessing")
     all_passed &= run_test_module(test_feature_engineering, "test_feature_engineering")
     all_passed &= run_test_module(test_seasonal_baseline, "test_seasonal_baseline")
+    all_passed &= run_test_module(test_pattern_learning, "test_pattern_learning")
     
     print(f"\n{'='*60}")
     if all_passed:
