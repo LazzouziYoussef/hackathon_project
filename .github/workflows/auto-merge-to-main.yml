@@ -1,0 +1,36 @@
+name: Auto Merge Dev to Main
+
+on:
+  workflow_run:
+    workflows: ["Lint and Type Check (Dev)", "Docker Build (Dev)"]
+    branches: [dev]
+    types: [completed]
+
+jobs:
+  merge-dev-to-main:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git User
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch All Branches
+        run: git fetch --all
+
+      - name: Checkout and Merge
+        run: |
+          git checkout main
+          git merge origin/dev --no-ff -m "chore: auto-merge dev to main [skip ci]"
+          git push origin main
+          echo "✅ Successfully merged dev into main"

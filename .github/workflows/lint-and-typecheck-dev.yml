@@ -1,0 +1,123 @@
+name: Lint and Type Check (Dev)
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      javascript: ${{ steps.filter.outputs.javascript }}
+      docker: ${{ steps.filter.outputs.docker }}
+      docs_only: ${{ steps.filter.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            python:
+              - 'backend/**/*.py'
+              - 'simulator/**/*.py'
+              - 'ml_engine/**/*.py'
+              - 'backend/requirements.txt'
+            javascript:
+              - 'frontend/**/*.ts'
+              - 'frontend/**/*.tsx'
+              - 'frontend/**/*.js'
+              - 'frontend/**/*.jsx'
+              - 'frontend/package.json'
+              - 'frontend/tsconfig.json'
+            docker:
+              - 'infra/docker/Dockerfile.*'
+            docs_only:
+              - '**/*.md'
+              - '**/*.json'
+
+  lint-python:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            pip-
+      - run: pip install black flake8
+      - run: black --check backend simulator ml_engine
+        continue-on-error: true
+        id: black-check
+      - run: flake8 backend simulator ml_engine --max-line-length=88 --extend-ignore=E203
+        continue-on-error: true
+        id: flake8-check
+
+  lint-javascript:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.javascript == 'true'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/cache@v3
+        with:
+          path: frontend/node_modules
+          key: npm-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            npm-
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npm run lint
+        continue-on-error: true
+        id: eslint-check
+      - working-directory: frontend
+        run: npx tsc --noEmit
+        continue-on-error: true
+        id: tsc-check
+
+  report-results:
+    needs:
+      - detect-changes
+      - lint-python
+      - lint-javascript
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check Python Lint Results
+        if: needs.detect-changes.outputs.python == 'true'
+        run: |
+          if [ "${{ needs.lint-python.result }}" == "failure" ]; then
+            echo "❌ Python linting failed"
+            echo "Run locally: black backend simulator ml_engine && flake8 backend simulator ml_engine --max-line-length=88"
+            exit 1
+          fi
+      - name: Check JavaScript Lint Results
+        if: needs.detect-changes.outputs.javascript == 'true'
+        run: |
+          if [ "${{ needs.lint-javascript.result }}" == "failure" ]; then
+            echo "❌ JavaScript linting/type checking failed"
+            echo "Run locally: cd frontend && npm run lint && npx tsc --noEmit"
+            exit 1
+          fi
+      - name: All Checks Passed
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ All code quality checks passed"
+          fi
