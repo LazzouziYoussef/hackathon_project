@@ -1,21 +1,35 @@
-name: Vercel Deploy
+name: Vercel Deploy Frontend
 
 on:
   push:
     branches:
       - main
+    paths:
+      - "frontend/**"
+      - ".github/workflows/vercel-deploy.yml"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm install -g vercel
-      - name: Deploy to Vercel Production
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Dependencies
         working-directory: frontend
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-        run: |
-          vercel --prod --token=${{ secrets.VERCEL_TOKEN }}
-          echo "✅ Deployment to Vercel completed successfully"
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+          production: true
