@@ -7,27 +7,30 @@ on:
     types: [completed]
 
 jobs:
-  create-and-merge-pr:
+  merge-dev-to-main:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
-      repository-projects: read
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create and Merge PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Configure Git User
         run: |
-          # 1. Create the PR from dev to main
-          # We use '|| true' in case a PR already exists from a previous failed run
-          pr_url=$(gh pr create --base main --head dev --title "chore: auto-merge dev to main" --body "Automated merge after successful CI" || gh pr list --base main --head dev --json url --jq '.[0].url')
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 2. Enable auto-merge (this waits for any remaining status checks)
-          # --merge means it will use a standard merge commit
-          gh pr merge "$pr_url" --auto --merge --delete-branch=false
-          echo " PR created and set to auto-merge: $pr_url"
+      - name: Fetch All Branches
+        run: git fetch --all
+
+      - name: Checkout and Merge
+        run: |
+          git checkout main
+          git merge origin/dev --no-ff -m "chore: auto-merge dev to main [skip ci]"
+          git push origin main
+          echo "✅ Successfully merged dev into main"
