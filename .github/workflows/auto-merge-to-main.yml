@@ -27,6 +27,7 @@ jobs:
       - name: Checkout Main
         run: git checkout main
       - name: Merge Dev to Main
-        run: git merge origin/dev --no-ff -m 'chore: auto-merge dev to main'
+        run: |
+          git merge origin/dev --no-ff -m "chore: auto-merge dev to main"
       - name: Push to Main
         run: git push origin main
