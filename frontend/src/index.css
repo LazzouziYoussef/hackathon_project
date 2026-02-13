@@ -1,1 +1,22 @@
 @import "tailwindcss";
+body{
+    background-color: rgb(4, 4, 4);
+}
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient {
+  animation: gradientMove 6s ease infinite;
+}
+@keyframes opacityani{
+100% { opacity: 100%;}
+0%{opacity: 50%;}
+
+50% {opacity: 100%;}
+}
+.animate-opacity{
+    animation: opacityani 6s ease;
+}
