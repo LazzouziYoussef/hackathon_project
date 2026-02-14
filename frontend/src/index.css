@@ -1,7 +1,19 @@
 @import "tailwindcss";
-body{
-    background-color: rgb(4, 4, 4);
+
+body {
+  background: linear-gradient(
+    135deg,
+    #0f172a,
+    #1e293b,
+    #0f172a
+  );
+  background-size: 200% 200%;
+  animation: gradientMove 10s ease infinite;
+  background-size: cover;
+  background-repeat: no-repeat;
+  
 }
+
 @keyframes gradientMove {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -20,3 +32,20 @@ body{
 .animate-opacity{
     animation: opacityani 6s ease;
 }
+  @keyframes slideAnimate {
+    0% { 
+       transform: translate(0,40px);
+    
+      opacity: 0;
+    }
+    100% {
+      transform: translate(0,0);
+      opacity: 1;
+    }
+  }
+
+ .animate-slide{
+  
+    animation: slideAnimate 0.5s ease forwards;
+    background-size: 100% 200%; 
+  }
