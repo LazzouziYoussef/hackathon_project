@@ -5,13 +5,13 @@ body {
     135deg,
     #0f172a,
     #1e293b,
-    #0f172a
+    hsl(222, 47%, 11%)
   );
-  background-size: 200% 200%;
-  animation: gradientMove 10s ease infinite;
-  background-size: cover;
-  background-repeat: no-repeat;
-  
+
+
+background-repeat: no-repeat;
+animation: gradientMove 10s ease infinite;
+background-size: 1000% 2000%;  
 }
 
 @keyframes gradientMove {
@@ -35,7 +35,7 @@ body {
   @keyframes slideAnimate {
     0% { 
        transform: translate(0,40px);
-    
+       ;
       opacity: 0;
     }
     100% {
@@ -45,7 +45,32 @@ body {
   }
 
  .animate-slide{
-  
     animation: slideAnimate 0.5s ease forwards;
     background-size: 100% 200%; 
   }
+  @keyframes slidedown {
+    0%{
+      width: 0%;
+      opacity: 0;
+    }
+    
+    100%{
+      width: 100%;
+      opacity: 1;
+    }
+  }
+  .animate-slide-right{
+    animation: slidedown 1.2s ease forwards;
+  }
+  @keyframes opacity-navbar {
+    0%{
+      opacity: 0;
+    }
+    100%{
+      opacity:1 ;
+    }
+  }
+  .animate-slide-right-navbar{
+    animation: opacity-navbar 1s ease forwards;
+  }
+  
