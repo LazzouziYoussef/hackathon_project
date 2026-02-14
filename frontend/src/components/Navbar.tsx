@@ -1,21 +1,22 @@
+
 import { NavLink } from "react-router-dom";
 
 export const Navbar = () => {
   const pages = [
     { name: "Dashboard", path: "/Dashboard" },
     { name: "About", path: "/about" },
+    { name:"Login",path:"/Login"},
+    { name:"Register", path:"/Register"}
   ];
 
   return (
     <nav className="relative w-full text-white overflow-hidden">
       
-      {/* Animated Background Layer */}
       <div className="absolute inset-0 bg-gradient-to-r 
                       from-indigo-900 via-blue-800 to-indigo-900 
                       bg-[length:200%_200%] animate-gradient">
       </div>
 
-      {/* Content Layer */}
       <div className="relative flex items-center justify-between px-8 py-4">
         
         <h1 className="text-2xl font-bold">
