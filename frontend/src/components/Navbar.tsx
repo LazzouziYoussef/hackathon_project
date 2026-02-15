@@ -10,7 +10,7 @@ export const Navbar = () => {
   ];
 
   return (
-    <nav className="relative w-full text-white overflow-hidden animate-slide-right-navbar">
+    <nav className="relative w-full text-white overflow-hidden animate-slide-right-navbar  ">
       
       <div className="absolute inset-0 bg-gradient-to-r 
                       from-indigo-900 via-blue-800 to-indigo-900 
@@ -18,8 +18,8 @@ export const Navbar = () => {
       </div>
 
       <div className="relative flex items-center justify-between px-8 py-4">
-        <h1 className="text-2xl font-bold">
-          Sadaqa Tech
+        <h1 className="text-2xl font-bold ">
+          Sadaqa <span className=" font-light animate-slide">tech</span>
         </h1>
        
 
