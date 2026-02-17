@@ -28,6 +28,16 @@ class ConfidenceScorer:
         'other': 0.70       # General traffic
     }
     
+    # Confidence factor weights (must sum to 1.0)
+    FACTOR_WEIGHTS = {
+        'base': 0.20,
+        'model': 0.35,
+        'quality': 0.25,
+        'ramadan': 0.10,
+        'time': 0.07,
+        'sample': 0.03
+    }
+    
     def __init__(self):
         pass
     
@@ -53,18 +63,27 @@ class ConfidenceScorer:
         Returns:
             Final confidence score between MIN_CONFIDENCE and MAX_CONFIDENCE
         """
-        # Start with event base confidence
-        base = self.EVENT_BASE_CONFIDENCE.get(event_name, self.EVENT_BASE_CONFIDENCE['other'])
+        # Validate and clamp inputs
+        model_confidence = max(0.0, min(1.0, model_confidence))
+        data_quality = max(0.0, min(1.0, data_quality))
+        if hour is not None:
+            hour = max(0, min(23, int(hour)))
+        if ramadan_day is not None:
+            ramadan_day = max(1, min(30, int(ramadan_day)))
         
-        # Weighted factors
-        weights = {
-            'base': 0.20,
-            'model': 0.35,
-            'quality': 0.25,
-            'ramadan': 0.10,
-            'time': 0.07,
-            'sample': 0.03
-        }
+        # Normalize event_name to avoid typos/casing issues
+        normalized_event_name = (
+            event_name.strip().lower()
+            if isinstance(event_name, str) and event_name.strip()
+            else 'other'
+        )
+        base = self.EVENT_BASE_CONFIDENCE.get(
+            normalized_event_name,
+            self.EVENT_BASE_CONFIDENCE['other']
+        )
+        
+        # Use class-level weights
+        weights = self.FACTOR_WEIGHTS
         
         # Factor 1: Base event confidence
         base_factor = base * weights['base']
@@ -77,7 +96,8 @@ class ConfidenceScorer:
         
         # Factor 4: Ramadan day progression
         # Confidence increases as Ramadan progresses (more data, better patterns)
-        if ramadan_day is not None:
+        # Note: ramadan_day is already validated to [1, 30] range above
+        if ramadan_day is not None and 1 <= ramadan_day <= 30:
             if ramadan_day <= 10:
                 ramadan_boost = 0.6  # Early days: 60% of max boost
             elif ramadan_day <= 20:
@@ -85,7 +105,7 @@ class ConfidenceScorer:
             else:
                 ramadan_boost = 1.0  # Last 10 nights: full boost
         else:
-            ramadan_boost = 0.5  # Not Ramadan: minimal boost
+            ramadan_boost = 0.5  # Not Ramadan or invalid: minimal boost
         ramadan_factor = ramadan_boost * weights['ramadan']
         
         # Factor 5: Time of day
@@ -102,7 +122,13 @@ class ConfidenceScorer:
         time_factor = time_boost * weights['time']
         
         # Factor 6: Sample size
-        if sample_size is not None:
+        # Treat missing or invalid (<=0) sample size separately from small valid samples
+        if sample_size is None:
+            sample_boost = 0.7  # Default for missing data
+        elif sample_size <= 0:
+            sample_boost = 0.3  # Lower penalty for invalid/zero data (worse than tiny valid samples)
+        else:
+            # Valid positive sample sizes
             if sample_size >= 30:
                 sample_boost = 1.0
             elif sample_size >= 15:
@@ -110,9 +136,8 @@ class ConfidenceScorer:
             elif sample_size >= 5:
                 sample_boost = 0.6
             else:
+                # Explicitly represents "few but valid samples" (1-4)
                 sample_boost = 0.4
-        else:
-            sample_boost = 0.7
         sample_factor = sample_boost * weights['sample']
         
         # Combine all factors
@@ -146,9 +171,18 @@ class ConfidenceScorer:
         if required_cols is None:
             required_cols = df.columns.tolist()
         
+        # Validate that all required columns exist
+        available_cols = [col for col in required_cols if col in df.columns]
+        missing_cols = set(required_cols) - set(available_cols)
+        
+        if missing_cols:
+            raise ValueError(
+                f"Required columns not found in DataFrame: {sorted(missing_cols)}"
+            )
+        
         # Calculate missing data percentage
-        missing_counts = df[required_cols].isna().sum()
-        total_cells = len(df) * len(required_cols)
+        missing_counts = df[available_cols].isna().sum()
+        total_cells = len(df) * len(available_cols)
         missing_pct = missing_counts.sum() / total_cells if total_cells > 0 else 1.0
         
         # Quality score: 1.0 - missing_pct
