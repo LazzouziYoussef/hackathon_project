@@ -18,7 +18,8 @@ RUN pip install --no-cache-dir \
     asyncpg==0.29.0 \
     pydantic==2.5.0 \
     python-dotenv==1.0.0 \
-    requests==2.31.0
+    requests==2.31.0 \
+    pytest==7.4.3
 
 # Dev mode: source code bind-mounted at /app via docker-compose
 CMD ["python", "-m", "inference.service"]

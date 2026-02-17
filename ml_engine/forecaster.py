@@ -139,7 +139,6 @@ class HybridForecaster:
                     event_name=event_name,
                     event_time=event_time,
                     current_time=current_time,
-                    current_traffic=current_traffic,
                     ramadan_day=ramadan_day,
                     historical_df=historical_df
                 )
@@ -154,7 +153,6 @@ class HybridForecaster:
         event_name: str,
         event_time: datetime,
         current_time: datetime,
-        current_traffic: float,
         ramadan_day: Optional[int],
         historical_df: Optional[pd.DataFrame]
     ) -> Optional[ForecastResult]:
@@ -178,7 +176,10 @@ class HybridForecaster:
         if historical_df is not None:
             try:
                 data_quality = self.confidence_scorer.calculate_data_quality(historical_df)
-            except:
+            except (ValueError, KeyError, AttributeError) as e:
+                # Log warning and use default if data quality calculation fails
+                import warnings
+                warnings.warn(f"Data quality calculation failed: {e}. Using default value.")
                 data_quality = 0.8
         
         # Get baseline prediction
@@ -244,14 +245,17 @@ class HybridForecaster:
         Returns:
             Baseline traffic prediction
         """
-        # Use seasonal baseline - create a dummy timestamp with the target hour
-        dummy_timestamp = datetime(2026, 2, 20, hour, 0)  # Arbitrary date, specific hour
+        # Use seasonal baseline - create a timestamp with the target hour
+        # Use a typical Ramadan date from training period for consistency
+        dummy_timestamp = datetime(2026, 2, 20, hour, 0)
         
         try:
             prediction = self.baseline_model.predict(dummy_timestamp, baseline_traffic=None)
             return float(prediction)
-        except:
-            # Fallback if prediction fails
+        except (ValueError, KeyError, AttributeError) as e:
+            # Log warning and use fallback if prediction fails
+            import warnings
+            warnings.warn(f"Baseline prediction failed for hour {hour}: {e}. Using fallback value.")
             return 100.0
     
     def _get_learned_multiplier(self, event_name: str, ramadan_day: Optional[int]) -> float:

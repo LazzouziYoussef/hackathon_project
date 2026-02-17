@@ -3,12 +3,14 @@ import numpy as np
 from datetime import datetime, timedelta
 import sys
 import os
+import pytest
 
 # Add ml_engine to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from forecaster import HybridForecaster, ForecastResult
 from preprocessing.feature_engineering import FeatureEngineer
+from models.confidence_scorer import ConfidenceScorer
 
 # Ensure deterministic randomness
 np.random.seed(42)
@@ -86,11 +88,8 @@ def test_forecast_requires_training():
     
     current_time = datetime(2026, 2, 20, 15, 0)  # 3 PM, Iftar trigger
     
-    try:
+    with pytest.raises(ValueError, match="must be trained"):
         forecaster.forecast(current_time, current_traffic=100.0)
-        assert False, "Should raise ValueError for untrained forecaster"
-    except ValueError as e:
-        assert "must be trained" in str(e).lower()
 
 
 def test_forecast_iftar_at_trigger():
@@ -120,6 +119,35 @@ def test_forecast_iftar_at_trigger():
     assert 0.5 <= iftar_forecast.confidence <= 0.99
     assert iftar_forecast.time_to_impact > 0
     assert iftar_forecast.time_to_impact <= 4  # Within 4-hour horizon
+
+
+def test_forecast_taraweeh_at_trigger():
+    """Test forecasting Taraweeh event at trigger time."""
+    df = _build_training_data()
+    forecaster = HybridForecaster()
+    forecaster.train(df)
+    
+    # Trigger time: 5 PM on Ramadan day 12
+    current_time = datetime(2026, 2, 28, 17, 0)  # Day 12 of Ramadan
+    current_traffic = 150.0
+    
+    forecasts = forecaster.forecast(current_time, current_traffic)
+    
+    # Should generate Taraweeh forecast
+    assert len(forecasts) >= 1
+    
+    # Find Taraweeh forecast
+    taraweeh_forecast = None
+    for f in forecasts:
+        if f.event_name == 'taraweeh':
+            taraweeh_forecast = f
+            break
+    
+    assert taraweeh_forecast is not None
+    assert taraweeh_forecast.predicted_traffic > 0
+    assert 0.5 <= taraweeh_forecast.confidence <= 0.99
+    assert taraweeh_forecast.time_to_impact > 0
+    assert taraweeh_forecast.time_to_impact <= 4  # Within 4-hour horizon
 
 
 def test_forecast_suhoor_at_trigger():
@@ -179,6 +207,54 @@ def test_no_forecast_outside_trigger_times():
     
     # Should return empty list (no triggers at 10 AM)
     assert len(forecasts) == 0
+
+
+def test_low_confidence_fallback():
+    """Ensure the fallback path is used when ML is disabled due to low confidence."""
+    df = _build_training_data()
+    forecaster = HybridForecaster()
+    forecaster.train(df)
+    
+    # Use Iftar trigger time (3 PM) on Ramadan day 10
+    trigger_hour = 15
+    current_time = datetime(2026, 2, 26, trigger_hour, 0)
+    
+    # Verify we get forecasts at this time before patching
+    forecasts = forecaster.forecast(current_time, current_traffic=100.0)
+    assert len(forecasts) > 0, "Expected at least one forecast at trigger hour"
+    
+    # Save original methods to restore later
+    original_should_use_ml = forecaster.confidence_scorer.should_use_ml
+    original_get_multiplier = forecaster.baseline_model.get_multiplier
+    
+    try:
+        # Force the confidence scorer to always return False for should_use_ml
+        def always_use_fallback(confidence: float) -> bool:
+            return False
+        
+        forecaster.confidence_scorer.should_use_ml = always_use_fallback
+        
+        # Track that the baseline model's get_multiplier is called
+        baseline_called = {"hour": None}
+        
+        def tracked_get_multiplier(hour: int) -> float:
+            baseline_called["hour"] = hour
+            return 1.5  # Return a distinctive multiplier
+        
+        forecaster.baseline_model.get_multiplier = tracked_get_multiplier
+        
+        # Re-run forecast with patched confidence scorer
+        forecasts = forecaster.forecast(current_time, current_traffic=100.0)
+        assert len(forecasts) > 0, "Expected forecasts when re-running at trigger hour"
+        
+        forecast = forecasts[0]
+        assert forecast.used_ml is False, "Should use fallback when confidence scorer returns False"
+        assert baseline_called["hour"] is not None, "Baseline get_multiplier should have been called"
+        assert forecast.multiplier == 1.5, "Multiplier should match the baseline model's value"
+    finally:
+        # Restore original methods to avoid affecting other tests
+        forecaster.confidence_scorer.should_use_ml = original_should_use_ml
+        forecaster.baseline_model.get_multiplier = original_get_multiplier
 
 
 def test_ml_vs_fallback_decision():
@@ -246,6 +322,41 @@ def test_forecast_horizon_constraint():
     
     # Horizon should be 4 hours (MVP)
     assert forecaster.FORECAST_HORIZON_HOURS == 4
+
+
+def test_forecast_horizon_behavior():
+    """Behavioral test: forecasts respect the configured horizon."""
+    df = _build_training_data()
+    forecaster = HybridForecaster()
+    forecaster.train(df)
+    
+    # Store original horizon
+    original_horizon = forecaster.FORECAST_HORIZON_HOURS
+    
+    try:
+        # Temporarily reduce the forecast horizon to 1 hour
+        test_horizon = 1
+        forecaster.FORECAST_HORIZON_HOURS = test_horizon
+        
+        # Test at a known trigger time (3 PM for Iftar)
+        current_time = datetime(2026, 2, 26, 15, 0)
+        forecasts = forecaster.forecast(current_time, current_traffic=120.0)
+        
+        # With 1-hour horizon, Iftar (3 hours away) should NOT be included
+        # since hours_until_event (3) > horizon (1)
+        assert len(forecasts) == 0, "No forecasts should be generated when event is beyond horizon"
+        
+        # Now set horizon to 4 hours and verify Iftar IS included
+        forecaster.FORECAST_HORIZON_HOURS = 4
+        forecasts = forecaster.forecast(current_time, current_traffic=120.0)
+        assert len(forecasts) > 0, "Iftar forecast should be included with 4-hour horizon"
+        
+        # All forecasts should be within the configured horizon
+        for forecast in forecasts:
+            assert forecast.time_to_impact <= 4, f"Forecast time_to_impact {forecast.time_to_impact} exceeds horizon"
+    finally:
+        # Restore original horizon to avoid side effects
+        forecaster.FORECAST_HORIZON_HOURS = original_horizon
 
 
 def test_ramadan_progression_affects_forecast():
