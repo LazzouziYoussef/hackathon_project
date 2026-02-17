@@ -14,6 +14,7 @@ from tests import test_preprocessing
 from tests import test_feature_engineering
 from tests import test_seasonal_baseline
 from tests import test_pattern_learning
+from tests import test_confidence_scoring
 
 
 def run_test_module(module, module_name):
@@ -53,6 +54,7 @@ def main():
     all_passed &= run_test_module(test_feature_engineering, "test_feature_engineering")
     all_passed &= run_test_module(test_seasonal_baseline, "test_seasonal_baseline")
     all_passed &= run_test_module(test_pattern_learning, "test_pattern_learning")
+    all_passed &= run_test_module(test_confidence_scoring, "test_confidence_scoring")
     
     print(f"\n{'='*60}")
     if all_passed:
