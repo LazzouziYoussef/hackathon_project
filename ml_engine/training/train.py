@@ -1,23 +1,20 @@
 """Training pipeline for Sadaqa Tech ML Engine.
 
 Loads historical data, engineers features, trains models, and saves them to disk.
-Executed via: python ml_engine/training/train.py --tenant-id=test_ngo
+Executed via: python -m ml_engine.training.train --tenant-id=test_ngo
 
 Core principle: Prediction before automation. Models are trained on historical data
 and saved for inference; no autonomous actions are taken.
 """
 import argparse
 import sys
-import os
 from pathlib import Path
 from datetime import datetime, timedelta
 import pickle
 from typing import Optional
 import warnings
 
-# Add ml_engine to path for imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+# Import from ml_engine package (assumes ml_engine is in PYTHONPATH)
 from preprocessing.data_loader import MetricsDataLoader
 from preprocessing.feature_engineering import FeatureEngineer
 from models.seasonal_baseline import SeasonalBaselineModel
@@ -96,7 +93,10 @@ class TrainingPipeline:
             DataFrame with historical metrics
         
         Raises:
-            ValueError: If insufficient data is available or data_loader is missing
+            ValueError: If data_loader is missing or no historical data is available
+        
+        Warnings:
+            UserWarning: If actual_days < min_training_days (but training continues)
         """
         if data_loader is None and self.data_loader is None:
             raise ValueError(
@@ -155,12 +155,25 @@ class TrainingPipeline:
         """
         print("\nEngineering features...")
         
+        # Return early if DataFrame is empty
+        if len(df) == 0:
+            raise ValueError("Cannot engineer features from empty DataFrame")
+        
         # Add time features
         df = self.feature_engineer.add_time_features(df)
         
         # Add Ramadan features
-        year = df.index[0].year if len(df) > 0 else datetime.now().year
-        df = self.feature_engineer.add_ramadan_features(df, year=year)
+        if len(df) > 0:
+            years = {ts.year for ts in df.index}
+            if len(years) > 1:
+                raise ValueError(
+                    "add_ramadan_features currently assumes data from a single calendar year; "
+                    f"received multiple years: {sorted(years)}. "
+                    "Either restrict the training data to a single year or update "
+                    "add_ramadan_features to infer Ramadan dates from the index per row."
+                )
+            year = next(iter(years))
+            df = self.feature_engineer.add_ramadan_features(df, year=year)
         
         # Count features
         feature_cols = [col for col in df.columns if col != 'value']
@@ -221,12 +234,12 @@ class TrainingPipeline:
         saved_paths['forecaster'] = str(forecaster_path)
         print(f"  ✓ Saved forecaster: {forecaster_path}")
         
-        # Create/update symlink to latest version
+        # Create/update symlink to latest version (using absolute path for robustness)
         latest_link = self.model_dir / f"forecaster_{self.tenant_id}_latest.pkl"
         if latest_link.exists() or latest_link.is_symlink():
             latest_link.unlink()
         
-        latest_link.symlink_to(forecaster_filename)
+        latest_link.symlink_to(forecaster_path.resolve())
         print(f"  ✓ Updated latest symlink: {latest_link}")
         
         return saved_paths
@@ -345,7 +358,16 @@ class TrainingPipeline:
 
 
 def main():
-    """CLI entry point for training pipeline."""
+    """CLI entry point for training pipeline.
+    
+    Note: This CLI currently requires a database connection to be configured.
+    For production use, ensure MetricsDataLoader is properly initialized with
+    a database connection. For testing, use the TrainingPipeline class directly
+    with a pre-loaded DataFrame.
+    
+    TODO: Wire up database connection configuration (e.g., from environment
+    variables or config file) to enable standalone CLI usage.
+    """
     parser = argparse.ArgumentParser(
         description="Train ML models for Sadaqa Tech scaling recommendations"
     )
@@ -384,11 +406,18 @@ def main():
             min_training_days=args.min_training_days
         )
         
-        # Run pipeline
-        summary = pipeline.run(days_history=args.days_history)
+        # TODO: Wire database connection here
+        # For now, this will fail at run() when df is None and data_loader is not set.
+        # Example: data_loader = MetricsDataLoader(db_connection=get_db_connection())
+        # Then: summary = pipeline.run(days_history=args.days_history, data_loader=data_loader)
         
-        # Exit successfully
-        sys.exit(0)
+        print("\n❌ CLI usage currently requires database connection setup.")
+        print("Please use TrainingPipeline directly with a pre-loaded DataFrame for testing.")
+        print("\nExample:")
+        print("  from ml_engine.training.train import TrainingPipeline")
+        print("  pipeline = TrainingPipeline(tenant_id='test_ngo', model_dir='models/')")
+        print("  summary = pipeline.run(df=your_dataframe)")
+        sys.exit(1)
         
     except Exception as e:
         print(f"\n❌ Training failed: {e}", file=sys.stderr)

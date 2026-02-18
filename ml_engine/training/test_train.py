@@ -18,16 +18,28 @@ from pathlib import Path
 import pickle
 import tempfile
 import shutil
-import sys
-import os
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
+# Import from training module (assumes ml_engine is in PYTHONPATH)
 from training.train import TrainingPipeline
 
 
 # Test Fixtures
+
+class FakeMetricsDataLoader:
+    """Test double for MetricsDataLoader that records load_historical_metrics() calls."""
+    
+    def __init__(self, df):
+        self.df = df
+        self.calls = []
+    
+    def load_historical_metrics(self, tenant_id, start_date, end_date):
+        self.calls.append({
+            'tenant_id': tenant_id,
+            'start_date': start_date,
+            'end_date': end_date
+        })
+        return self.df.copy()
+
 
 @pytest.fixture
 def temp_model_dir():
@@ -45,13 +57,16 @@ def sample_training_data():
     hours = 90 * 24
     timestamps = [start_date + timedelta(hours=i) for i in range(hours)]
     
+    # Use a deterministic RNG to avoid flaky tests
+    rng = np.random.default_rng(42)
+    
     # Simulate traffic patterns with daily seasonality
     values = []
     for ts in timestamps:
         hour = ts.hour
         # Higher traffic during evening hours
         base_value = 100 + (50 * np.sin((hour - 12) * np.pi / 12))
-        noise = np.random.normal(0, 10)
+        noise = rng.normal(0, 10)
         values.append(max(0, base_value + noise))
     
     df = pd.DataFrame({
@@ -128,6 +143,188 @@ def test_pipeline_initialization_invalid_min_training_days(temp_model_dir):
         )
 
 
+# Data Loading Tests
+
+def test_load_data_passes_correct_parameters_to_data_loader(temp_model_dir):
+    """DB-backed load_data should delegate tenant_id/start_date/end_date correctly."""
+    end_date = datetime(2024, 3, 31)
+    days_history = 30
+    tenant_id = "tenant-abc"
+    
+    # Create DataFrame spanning exactly 30 days
+    df = pd.DataFrame({
+        'timestamp': pd.date_range(
+            start=datetime(2024, 3, 1),
+            end=end_date,
+            freq='D'
+        ),
+        'value': np.arange(31)
+    })
+    df.set_index('timestamp', inplace=True)
+    
+    loader = FakeMetricsDataLoader(df)
+    pipeline = TrainingPipeline(
+        tenant_id=tenant_id,
+        model_dir=temp_model_dir,
+        min_training_days=10
+    )
+    
+    result = pipeline.load_data(
+        days_history=days_history,
+        end_date=end_date,
+        data_loader=loader
+    )
+    
+    # Returned dataframe is from the loader
+    assert len(result) == len(df)
+    
+    # The loader is called exactly once with the expected arguments
+    assert len(loader.calls) == 1
+    call = loader.calls[0]
+    assert call['tenant_id'] == tenant_id
+    assert call['end_date'] == end_date
+    
+    # start_date should be end_date - days_history
+    expected_start = end_date - timedelta(days=days_history)
+    assert call['start_date'] == expected_start
+
+
+def test_load_data_uses_provided_data_loader_over_self_data_loader(temp_model_dir):
+    """load_data should prefer the provided data_loader argument."""
+    df1 = pd.DataFrame({
+        'timestamp': pd.date_range(start=datetime(2024, 3, 1), periods=10, freq='D'),
+        'value': [1.0] * 10
+    })
+    df1.set_index('timestamp', inplace=True)
+    
+    df2 = pd.DataFrame({
+        'timestamp': pd.date_range(start=datetime(2024, 3, 1), periods=10, freq='D'),
+        'value': [2.0] * 10
+    })
+    df2.set_index('timestamp', inplace=True)
+    
+    loader1 = FakeMetricsDataLoader(df1)
+    loader2 = FakeMetricsDataLoader(df2)
+    
+    pipeline = TrainingPipeline(
+        tenant_id="test_tenant",
+        model_dir=temp_model_dir,
+        min_training_days=1
+    )
+    pipeline.data_loader = loader1
+    
+    # Provide loader2 as argument - it should be used instead of self.data_loader
+    result = pipeline.load_data(
+        days_history=10,
+        end_date=datetime(2024, 3, 10),
+        data_loader=loader2
+    )
+    
+    # Should use loader2 (value=2.0) not loader1 (value=1.0)
+    assert result['value'].iloc[0] == 2.0
+    assert len(loader2.calls) == 1
+    assert len(loader1.calls) == 0
+
+
+def test_load_data_raises_when_no_data_loader(temp_model_dir):
+    """load_data should fail when neither self.data_loader nor argument is provided."""
+    pipeline = TrainingPipeline(
+        tenant_id="test_tenant",
+        model_dir=temp_model_dir
+    )
+    
+    with pytest.raises(ValueError, match="data_loader is required"):
+        pipeline.load_data(data_loader=None)
+
+
+def test_load_data_raises_when_no_historical_data(temp_model_dir):
+    """load_data should raise when the DB loader returns an empty dataframe."""
+    empty_df = pd.DataFrame(columns=['timestamp', 'value'])
+    empty_df.set_index('timestamp', inplace=True)
+    
+    loader = FakeMetricsDataLoader(empty_df)
+    pipeline = TrainingPipeline(
+        tenant_id="test_tenant",
+        model_dir=temp_model_dir
+    )
+    
+    with pytest.raises(ValueError, match="No historical data available"):
+        pipeline.load_data(
+            days_history=30,
+            end_date=datetime(2024, 3, 31),
+            data_loader=loader
+        )
+
+
+def test_load_data_warns_when_not_enough_history(temp_model_dir):
+    """DB-backed load_data should warn when actual_days < min_training_days."""
+    actual_days = 5
+    min_training_days = 10
+    end_date = datetime(2024, 3, 5)
+    
+    df = pd.DataFrame({
+        'timestamp': pd.date_range(
+            start=datetime(2024, 3, 1),
+            end=end_date,
+            freq='D'
+        ),
+        'value': np.arange(5)  # 5 values for 5 days (Mar 1-5)
+    })
+    df.set_index('timestamp', inplace=True)
+    
+    loader = FakeMetricsDataLoader(df)
+    pipeline = TrainingPipeline(
+        tenant_id="test_tenant",
+        model_dir=temp_model_dir,
+        min_training_days=min_training_days
+    )
+    
+    with pytest.warns(UserWarning, match="Only .* days of data available"):
+        result = pipeline.load_data(
+            days_history=30,
+            end_date=end_date,
+            data_loader=loader
+        )
+    
+    # Data should still be returned even when warning is emitted
+    assert not result.empty
+    assert len(result) > 0
+
+
+def test_load_data_uses_min_training_days_as_default(temp_model_dir):
+    """load_data should use min_training_days when days_history is not provided."""
+    min_training_days = 45
+    end_date = datetime(2024, 3, 31)
+    
+    df = pd.DataFrame({
+        'timestamp': pd.date_range(
+            start=datetime(2024, 2, 15),
+            end=end_date,
+            freq='D'
+        ),
+        'value': np.arange(46)
+    })
+    df.set_index('timestamp', inplace=True)
+    
+    loader = FakeMetricsDataLoader(df)
+    pipeline = TrainingPipeline(
+        tenant_id="test_tenant",
+        model_dir=temp_model_dir,
+        min_training_days=min_training_days
+    )
+    
+    result = pipeline.load_data(
+        end_date=end_date,
+        data_loader=loader
+    )
+    
+    # Should have requested min_training_days worth of data
+    assert len(loader.calls) == 1
+    call = loader.calls[0]
+    expected_start = end_date - timedelta(days=min_training_days)
+    assert call['start_date'] == expected_start
+
+
 # Feature Engineering Tests
 
 def test_engineer_features(temp_model_dir, sample_training_data):
@@ -164,6 +361,28 @@ def test_engineer_features_preserves_index(temp_model_dir, sample_training_data)
     engineered_df = pipeline.engineer_features(df)
     
     assert all(engineered_df.index == original_index)
+
+
+def test_engineer_features_rejects_multi_year_data(temp_model_dir):
+    """Test that multi-year data raises ValueError for Ramadan features."""
+    pipeline = TrainingPipeline(
+        tenant_id="test_tenant",
+        model_dir=temp_model_dir
+    )
+    
+    # Create data spanning 2023 and 2024
+    timestamps_2023 = pd.date_range(start=datetime(2023, 11, 1), periods=100, freq='H')
+    timestamps_2024 = pd.date_range(start=datetime(2024, 1, 1), periods=100, freq='H')
+    all_timestamps = timestamps_2023.append(timestamps_2024)
+    
+    df = pd.DataFrame({
+        'timestamp': all_timestamps,
+        'value': np.arange(len(all_timestamps))
+    })
+    df.set_index('timestamp', inplace=True)
+    
+    with pytest.raises(ValueError, match="multiple years"):
+        pipeline.engineer_features(df)
 
 
 # Model Training Tests
@@ -453,7 +672,7 @@ def test_run_multiple_tenants_separate_models(temp_model_dir, sample_training_da
 # Edge Cases
 
 def test_empty_dataframe_raises_error(temp_model_dir):
-    """Test that empty DataFrame raises error."""
+    """Test that empty DataFrame raises ValueError."""
     pipeline = TrainingPipeline(
         tenant_id="test_tenant",
         model_dir=temp_model_dir
@@ -462,12 +681,12 @@ def test_empty_dataframe_raises_error(temp_model_dir):
     empty_df = pd.DataFrame(columns=['timestamp', 'value'])
     empty_df.set_index('timestamp', inplace=True)
     
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         pipeline.run(df=empty_df)
 
 
 def test_single_data_point_raises_error(temp_model_dir):
-    """Test that single data point raises error during training."""
+    """Test that single data point raises ValueError during training."""
     pipeline = TrainingPipeline(
         tenant_id="test_tenant",
         model_dir=temp_model_dir
@@ -479,7 +698,7 @@ def test_single_data_point_raises_error(temp_model_dir):
     })
     single_point_df.set_index('timestamp', inplace=True)
     
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         pipeline.run(df=single_point_df)
 
 
