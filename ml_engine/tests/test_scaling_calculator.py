@@ -71,6 +71,15 @@ def test_calculator_validation_max_replicas():
         ScalingCalculator(max_replicas=0)
 
 
+def test_calculator_validation_min_replicas():
+    """Test that min_replicas must be >= 1 and <= max_replicas."""
+    with pytest.raises(ValueError, match="min_replicas must be >= 1"):
+        ScalingCalculator(min_replicas=0)
+    
+    with pytest.raises(ValueError, match="min_replicas.*must be <= max_replicas"):
+        ScalingCalculator(min_replicas=10, max_replicas=5)
+
+
 def test_calculator_validation_cost_cap():
     """Test that cost_cap_per_hour must be >= 0 or None."""
     with pytest.raises(ValueError, match="cost_cap_per_hour must be >= 0 or None"):
@@ -143,20 +152,22 @@ def test_max_replicas_cap():
 
 
 def test_min_replicas_floor():
-    """Test that recommendations respect MIN_REPLICAS = 1."""
+    """Test that recommendations respect configured min_replicas."""
     calc = ScalingCalculator(
         capacity_per_pod=100.0,
-        safety_factor=1.2
+        safety_factor=1.2,
+        min_replicas=3  # Custom minimum
     )
     
-    # Very low traffic should still recommend at least 1 replica
+    # Very low traffic should still recommend at least min_replicas (3)
     rec = calc.calculate_recommendation(
         predicted_traffic=1.0,
         current_replicas=5,
         reason="Very low traffic"
     )
     
-    assert rec.recommended_replicas >= 1
+    assert rec.recommended_replicas >= 3
+    assert rec.recommended_replicas == 3  # Should be exactly min_replicas
 
 
 def test_cost_calculation():
@@ -202,6 +213,21 @@ def test_cost_cap_enforcement():
         reason="Exceeds cap"
     )
     assert rec2.within_cost_cap is False
+    
+    # Zero cap: any non-zero recommended cost should be outside the cost cap
+    zero_cap_calc = ScalingCalculator(
+        capacity_per_pod=100.0,
+        cost_per_replica_per_hour=1.0,
+        cost_cap_per_hour=0.0,
+    )
+    zero_cap_rec = zero_cap_calc.calculate_recommendation(
+        predicted_traffic=100.0,
+        current_replicas=1,
+        reason="Zero cap",
+    )
+    # Sanity check that this scenario would incur a non-zero cost
+    assert zero_cap_rec.recommended_cost_per_hour > 0.0
+    assert zero_cap_rec.within_cost_cap is False
 
 
 def test_no_cost_cap():
@@ -263,9 +289,10 @@ def test_should_scale_with_insufficient_change():
 
 
 def test_should_scale_respects_cost_cap():
-    """Test that should_scale returns False if cost cap exceeded."""
+    """Test that should_scale returns False if cost cap exceeded and cost increasing."""
     calc = ScalingCalculator()
     
+    # Cost-increasing recommendation that exceeds cap
     rec = ScalingRecommendation(
         current_replicas=3,
         recommended_replicas=10,  # Change of 7
@@ -280,7 +307,57 @@ def test_should_scale_respects_cost_cap():
         within_cost_cap=False  # Exceeds cap
     )
     
+    # Should block cost-increasing action when above cap
     assert calc.should_scale(rec, min_replica_change=2) is False
+
+
+def test_should_scale_allows_scale_down_above_cap():
+    """Test that should_scale allows scale-down even when above cost cap."""
+    calc = ScalingCalculator()
+    
+    # Cost-decreasing recommendation when above cap
+    rec = ScalingRecommendation(
+        current_replicas=10,
+        recommended_replicas=5,  # Change of 5, decreasing
+        predicted_traffic=400.0,
+        capacity_per_pod=100.0,
+        safety_factor=1.2,
+        cost_per_replica_per_hour=1.0,
+        current_cost_per_hour=10.0,
+        recommended_cost_per_hour=5.0,
+        cost_increase_per_hour=-5.0,  # Negative = cost decrease
+        reason="Scale down to reduce costs",
+        within_cost_cap=False  # Still above cap even after scale-down
+    )
+    
+    # Should allow scale-down even when above cap (cost decreasing)
+    assert calc.should_scale(rec, min_replica_change=2) is True
+
+
+def test_should_scale_validates_min_replica_change():
+    """Test that should_scale validates min_replica_change parameter."""
+    calc = ScalingCalculator()
+    
+    rec = ScalingRecommendation(
+        current_replicas=3,
+        recommended_replicas=8,
+        predicted_traffic=500.0,
+        capacity_per_pod=100.0,
+        safety_factor=1.2,
+        cost_per_replica_per_hour=0.10,
+        current_cost_per_hour=0.30,
+        recommended_cost_per_hour=0.80,
+        cost_increase_per_hour=0.50,
+        reason="Test",
+        within_cost_cap=True
+    )
+    
+    # Should raise ValueError for invalid min_replica_change
+    with pytest.raises(ValueError, match="min_replica_change must be >= 1"):
+        calc.should_scale(rec, min_replica_change=0)
+    
+    with pytest.raises(ValueError, match="min_replica_change must be >= 1"):
+        calc.should_scale(rec, min_replica_change=-1)
 
 
 def test_recommendation_requires_non_empty_reason():
@@ -401,8 +478,9 @@ def test_zero_traffic_handling():
         reason="Traffic dropped to zero"
     )
     
-    # Should recommend at least MIN_REPLICAS (1)
-    assert rec.recommended_replicas >= 1
+    # Should scale down to the enforced min_replicas (1) and reduce cost
+    assert rec.recommended_replicas == 1
+    assert rec.cost_increase_per_hour < 0
 
 
 def test_scaling_down_scenario():

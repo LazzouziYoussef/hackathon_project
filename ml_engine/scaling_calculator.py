@@ -56,7 +56,7 @@ class ScalingCalculator:
     
     # Safety constraints from system design
     MAX_REPLICAS = 50
-    MIN_REPLICAS = 1
+    DEFAULT_MIN_REPLICAS = 1
     DEFAULT_SAFETY_FACTOR = 1.2  # 20% headroom
     DEFAULT_CAPACITY_PER_POD = 100.0  # requests/second
     DEFAULT_COST_PER_REPLICA_PER_HOUR = 0.10  # $0.10/replica/hour
@@ -67,6 +67,7 @@ class ScalingCalculator:
         safety_factor: float = DEFAULT_SAFETY_FACTOR,
         cost_per_replica_per_hour: float = DEFAULT_COST_PER_REPLICA_PER_HOUR,
         max_replicas: int = MAX_REPLICAS,
+        min_replicas: int = DEFAULT_MIN_REPLICAS,
         cost_cap_per_hour: Optional[float] = None
     ):
         """Initialize scaling calculator with configuration.
@@ -76,7 +77,8 @@ class ScalingCalculator:
             safety_factor: Safety multiplier (>= 1.0) for headroom
             cost_per_replica_per_hour: Cost per replica per hour in dollars
             max_replicas: Maximum allowed replicas (safety cap)
-            cost_cap_per_hour: Optional cost cap per hour in dollars
+            min_replicas: Minimum allowed replicas (safety floor)
+            cost_cap_per_hour: Optional cost cap per hour in dollars (soft cap - flagged but not enforced)
         
         Raises:
             ValueError: If configuration values are invalid
@@ -89,6 +91,10 @@ class ScalingCalculator:
             raise ValueError(f"cost_per_replica_per_hour must be >= 0, got {cost_per_replica_per_hour}")
         if max_replicas < 1:
             raise ValueError(f"max_replicas must be >= 1, got {max_replicas}")
+        if min_replicas < 1:
+            raise ValueError(f"min_replicas must be >= 1, got {min_replicas}")
+        if min_replicas > max_replicas:
+            raise ValueError(f"min_replicas ({min_replicas}) must be <= max_replicas ({max_replicas})")
         if cost_cap_per_hour is not None and cost_cap_per_hour < 0:
             raise ValueError(f"cost_cap_per_hour must be >= 0 or None, got {cost_cap_per_hour}")
         
@@ -96,6 +102,7 @@ class ScalingCalculator:
         self.safety_factor = safety_factor
         self.cost_per_replica_per_hour = cost_per_replica_per_hour
         self.max_replicas = max_replicas
+        self.min_replicas = min_replicas
         self.cost_cap_per_hour = cost_cap_per_hour
     
     def calculate_recommendation(
@@ -130,7 +137,7 @@ class ScalingCalculator:
         needed_replicas = math.ceil(base_replicas * self.safety_factor)
         
         # Apply minimum constraint
-        needed_replicas = max(self.MIN_REPLICAS, needed_replicas)
+        needed_replicas = max(self.min_replicas, needed_replicas)
         
         # Check if capped at max
         capped_at_max = needed_replicas > self.max_replicas
@@ -169,22 +176,30 @@ class ScalingCalculator:
         """Determine if scaling action should be recommended.
         
         Applies hysteresis to avoid thrashing on small changes.
+        Cost cap only blocks cost-increasing actions, allowing scale-down even when above cap.
         
         Args:
             recommendation: ScalingRecommendation to evaluate
-            min_replica_change: Minimum replica change to recommend scaling
+            min_replica_change: Minimum replica change to recommend scaling (must be >= 1)
         
         Returns:
             True if scaling should be recommended, False otherwise
+        
+        Raises:
+            ValueError: If min_replica_change is less than 1
         """
+        if min_replica_change < 1:
+            raise ValueError(f"min_replica_change must be >= 1, got {min_replica_change}")
+        
         replica_change = abs(recommendation.recommended_replicas - recommendation.current_replicas)
         
         # Don't recommend if change is below threshold
         if replica_change < min_replica_change:
             return False
         
-        # Don't recommend if exceeds cost cap
-        if not recommendation.within_cost_cap:
+        # Don't recommend if exceeds cost cap AND would increase cost
+        # Allow scale-down even when above cap to reduce costs
+        if not recommendation.within_cost_cap and recommendation.cost_increase_per_hour > 0:
             return False
         
         return True
@@ -212,10 +227,10 @@ class ScalingCalculator:
         ]
         
         if recommendation.capped_at_max:
-            lines.append(f"  ⚠️  CAPPED at MAX_REPLICAS ({self.max_replicas})")
+            lines.append(f"  [WARN] CAPPED at MAX_REPLICAS ({self.max_replicas})")
         
         if not recommendation.within_cost_cap:
-            lines.append(f"  ❌ EXCEEDS cost cap (${self.cost_cap_per_hour:.2f}/hour)")
+            lines.append(f"  [ERROR] EXCEEDS cost cap (${self.cost_cap_per_hour:.2f}/hour)")
         
         return "\n".join(lines)
     
@@ -230,6 +245,6 @@ class ScalingCalculator:
             'safety_factor': self.safety_factor,
             'cost_per_replica_per_hour': self.cost_per_replica_per_hour,
             'max_replicas': self.max_replicas,
-            'min_replicas': self.MIN_REPLICAS,
+            'min_replicas': self.min_replicas,
             'cost_cap_per_hour': self.cost_cap_per_hour
         }
