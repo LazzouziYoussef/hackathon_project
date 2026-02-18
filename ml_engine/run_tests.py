@@ -16,6 +16,7 @@ from tests import test_seasonal_baseline
 from tests import test_pattern_learning
 from tests import test_confidence_scoring
 from tests import test_hybrid_forecaster
+from tests import test_scaling_calculator
 
 
 def run_test_module(module, module_name):
@@ -57,6 +58,7 @@ def main():
     all_passed &= run_test_module(test_pattern_learning, "test_pattern_learning")
     all_passed &= run_test_module(test_confidence_scoring, "test_confidence_scoring")
     all_passed &= run_test_module(test_hybrid_forecaster, "test_hybrid_forecaster")
+    all_passed &= run_test_module(test_scaling_calculator, "test_scaling_calculator")
     
     print(f"\n{'='*60}")
     if all_passed:
