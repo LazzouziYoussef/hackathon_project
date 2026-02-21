@@ -1,12 +1,17 @@
-import sqlalchemy as _sql
-import sqlalchemy.ext.declarative as _declarative
-import sqlalchemy.orm as _orm
 import os
-from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
 
-load_dotenv()
+class DatabaseWrapper:
+    def __init__(self):
+        self.engine = create_engine("postgresql://sadaqa_admin:your_password_here@localhost:5432/sadaqa_observability")
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+    def fetch_all(self, query, *args):
+        # Maps $1, $2 etc to SQLAlchemy named parameters
+        formatted_query = query.replace('$1', ':v1').replace('$2', ':v2').replace('$3', ':v3').replace('$4', ':v4')
+        params = {f"v{i+1}": arg for i, arg in enumerate(args)}
+        
+        with self.engine.connect() as conn:
+            result = conn.execute(text(formatted_query), params)
+            return result.fetchall()
 
-engine = _sql.create_engine()
-
+db = DatabaseWrapper()
