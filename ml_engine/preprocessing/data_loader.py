@@ -28,7 +28,7 @@ class MetricsDataLoader:
         return df
     
     def resample_to_minutely(self, df):
-        return df.resample('1T').mean().ffill()
+        return df.resample('min').mean().ffill()
     
     def validate_data_quality(self, df):
         if len(df) == 0:

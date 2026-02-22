@@ -1,49 +1,56 @@
-import sys
-import os
-from datetime import datetime
-
-# Ensuring ml_engine is importable
-# Goes up: core -> api -> app -> backend -> hackathon_project
-BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
-if BASE_PATH not in sys.path:
-    sys.path.append(BASE_PATH)
-
-
-from ml_engine.models.pattern_learner import RamadanPatternLearner
-from ml_engine.preprocessing.feature_engineering import FeatureEngineer
 from ml_engine.preprocessing.data_loader import MetricsDataLoader
-from backend.app.database import db
+from ml_engine.preprocessing.feature_engineering import FeatureEngineer
+from ml_engine.models.pattern_learner import RamadanPatternLearner
+import numpy as np
 
-class SadaqaBrain:
-    def __init__(self):
-        self.learner = RamadanPatternLearner()
+class MLservice:
+    def __init__(self,db_connection):
+        self.db = db_connection
+        self.loader = MetricsDataLoader(db_connection)
         self.engineer = FeatureEngineer()
-        self.loader = MetricsDataLoader(db)
 
-    async def sync_and_predict(self, tenant_id: str):
-        # 1. Load historical data to learn from
-        # In a real scenario, start_date would be dynamic based on Ramadan 2026
-        df = self.loader.load_historical_metrics(
-            tenant_id, 
-            start_date="2026-02-17", 
-            end_date=datetime.now().strftime("%Y-%m-%d")
-        )
-        
-        # 2. Process data using your ML logic
-        df_rich = self.engineer.engineer_all_features(df, year=2026)
-        
-        # 3. Retrain patterns in-memory
-        self.learner.learn_surge_patterns(df_rich)
-        self.learner.learn_daily_progression(df_rich)
-        
-        # 4. Get current context for today
-        now = datetime.now()
-        ramadan_day = self.engineer.ramadan_calendar.get_ramadan_day(now, year=2026)
-        
-        return {
-            "day": ramadan_day,
-            "factor": self.learner.get_day_adjustment_factor(ramadan_day) if ramadan_day else 1.0,
-            "summary": self.learner.get_pattern_summary()
-        }
+    async def sync_and_predict(self,tenant_id):
+        df = self.loader.load_historical_metrics(tenant_id=tenant_id,start_date="2026-01-01",end_date="2026-03-22")
+        df = self.loader.resample_to_minutely(df)
+        self.loader.validate_data_quality(df)
 
-brain = SadaqaBrain()
+        df = self.engineer.engineer_all_features(df, year="2026")
+
+        learner = RamadanPatternLearner()
+        learner.learn_surge_patterns(df)
+        learner.learn_daily_progression(df)
+
+        summary = learner.get_pattern_summary()
+        #calculate currne adjustement
+        print(df.head())
+        print(df.columns)
+        print(df.shape) 
+        ramadan_day = df["ramadan_day"].iloc[-1]
+        factor  = learner.get_day_adjustment_factor(ramadan_day)
+
+        return  {"factor": self._to_python(factor), "day": self._to_python(ramadan_day),"summary": self._to_python(summary)}
+
+    def _to_python(self, obj):
+        """Recursively convert numpy types to native Python types."""
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, dict):
+            return {k: self._to_python(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._to_python(i) for i in obj]
+        return obj
+
+class MockDB:
+    def fetch_all(self, query, tenant_id, metric_name, start, end):
+        import pandas as pd
+        import numpy as np
+        dates = pd.date_range(start=start, end=end, freq="min")
+        values = np.random.randint(50, 500, len(dates))
+        return list(zip(dates, values))
+
+brain = MLservice(db_connection=MockDB())        
+
