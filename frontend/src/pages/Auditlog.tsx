@@ -1,9 +1,9 @@
 import React from 'react'
 
-const Auditlog = () => {
+const AuditLog = () => {
   return (
     <div>Auditlog</div>
   )
 }
 
-export default Auditlog
+export default AuditLog

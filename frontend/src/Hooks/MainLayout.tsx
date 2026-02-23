@@ -11,7 +11,7 @@ const MainLayout = () => {
       <div className="ml-64 flex-1 flex flex-col">
         <Header />
         <main className="p-8 flex-1 overflow-y-auto">
-          <Outlet />
+       <Outlet></Outlet>
         </main>
       </div>
 

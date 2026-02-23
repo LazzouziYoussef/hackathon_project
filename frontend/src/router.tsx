@@ -8,7 +8,6 @@ import Recommendations from "./pages/Recommendations";
 import Approvals from "./pages/Approvals";
 import Simulator from "./pages/Simulator";
 import AuditLog from "./pages/Auditlog";
-import Tenants from "./pages/Tenants";
 
 export const router = createBrowserRouter([
   {
@@ -41,12 +40,9 @@ export const router = createBrowserRouter([
       },
       {
         path: "audit-log",
-        element: <AuditLog />,
+        element: <AuditLog></AuditLog>,
       },
-      {
-        path: "tenants",
-        element: <Tenants />,
-      },
+      
     ],
   },
 ]);

@@ -6,7 +6,7 @@ const Overview = () => {
 
       <div>
         <h1 className="text-2xl font-semibold">Operational Overview</h1>
-        <p className="text-gray-400 text-sm">
+        <p className="text-gray-400 text-sm ">
           Real-time observability with short-term prediction.
         </p>
       </div>

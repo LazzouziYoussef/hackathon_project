@@ -15,7 +15,6 @@ const Sidebar = () => {
         <NavLink to="/approvals" className="block hover:text-white">Approvals</NavLink>
         <NavLink to="/simulator" className="block hover:text-white">Simulator</NavLink>
         <NavLink to="/audit-log" className="block hover:text-white">Audit Log</NavLink>
-        <NavLink to="/tenants" className="block hover:text-white">Tenants</NavLink>
       </nav>
     </aside>
   );
