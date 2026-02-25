@@ -1,7 +1,6 @@
 import { NavLink } from "react-router-dom";
 
 const Sidebar = () => {
-  const HoverClass = "bg-"
   return (
     <aside className="fixed w-64 h-screen bg-[#111827] border-r border-gray-800 p-6">
       <h2 className="text-xl font-semibold mb-10">
