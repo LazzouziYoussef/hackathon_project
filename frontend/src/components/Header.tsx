@@ -1,8 +1,12 @@
-import React from 'react'
+
 
 const Header = () => {
   return (
-    <div>Header</div>
+    <div className='flex bg-[#0e2039] h-15 pl-10 pt-1'>
+      <div className="font-bold  text-white text-4xl">
+        Overview
+      </div>
+    </div>
   )
 }
 

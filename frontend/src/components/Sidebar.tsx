@@ -8,7 +8,7 @@ const Sidebar = () => {
       </h2>
 
       <nav className="space-y-4 text-sm">
-        <NavLink to="/" className="block hover:text-white">Overview</NavLink>
+        <NavLink to="/" className="block hover:text-white hover:cursor-pointer ">Overview</NavLink>
         <NavLink to="/metrics" className="block hover:text-white">Metrics</NavLink>
         <NavLink to="/predictions" className="block hover:text-white">Predictions</NavLink>
         <NavLink to="/recommendations" className="block hover:text-white">Recommendations</NavLink>
