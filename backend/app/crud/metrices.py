@@ -29,6 +29,8 @@ async def get_metrices_as_df( db: AsyncSession,
     df = pd.DataFrame(rows,columns=["time","value"])
 
     df["time"] = pd.to_datetime(df["time"])
+    df["time"] = df["time"].dt.tz_localize(None)
+    df = df.set_index("time")
     df.index = pd.DatetimeIndex(df.index)
 
     return df
