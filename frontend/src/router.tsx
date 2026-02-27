@@ -1,20 +1,48 @@
-import { createBrowserRouter } from 'react-router-dom'
-import App from './App';
-import About from './pages/About';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import { Dashboard } from './pages/Dashboard';
+import { createBrowserRouter } from "react-router-dom";
+import MainLayout from "./Hooks/MainLayout";
+
+import Overview from "./pages/Overview";
+import Metrics from "./pages/Metrics";
+import Predictions from "./pages/Predictions";
+import Recommendations from "./pages/Recommendations";
+import Approvals from "./pages/Approvals";
+import Simulator from "./pages/Simulator";
+import AuditLog from "./pages/Auditlog";
+
 export const router = createBrowserRouter([
-    {
-        path:"/",
-        element: <App></App>,
-        children:[
-            {path:'/Dashboard',element: <Dashboard></Dashboard>},
-            {path:'/about',element:<About></About>},
-            {path:'/Login',element:<Login></Login>},
-            {path:'/Register',element:<Register></Register>}
-        ]
-    },
-
+  {
+    path: "/",
+    element: <MainLayout />,
+    children: [
+      {
+        index: true,
+        element: <Overview />,
+      },
+      {
+        path: "metrics",
+        element: <Metrics />,
+      },
+      {
+        path: "predictions",
+        element: <Predictions />,
+      },
+      {
+        path: "recommendations",
+        element: <Recommendations />,
+      },
+      {
+        path: "approvals",
+        element: <Approvals />,
+      },
+      {
+        path: "simulator",
+        element: <Simulator />,
+      },
+      {
+        path: "audit-log",
+        element: <AuditLog></AuditLog>,
+      },
+      
+    ],
+  },
 ]);
-
