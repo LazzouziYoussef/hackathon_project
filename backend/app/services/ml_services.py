@@ -1,6 +1,7 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.app.crud.metrices import get_metrices_as_df, insert_scaling_event
+from backend.app.crud.metrices import get_metrices_as_df
+from backend.app.crud.scalling_event import insert_scaling_event 
 from ml_engine.models.pattern_learner import RamadanPatternLearner
 from ml_engine.preprocessing.feature_engineering import FeatureEngineer
 from uuid import UUID
@@ -37,7 +38,7 @@ class MLservice:
         learner = RamadanPatternLearner() #using yousef ML-model for learning 
         learner.learn_surge_patterns(df)
         learner.learn_daily_progression(df)
-        
+            
         ramdan_df = df[df["ramadan_day"] > 0 ]#felter
         print("ramadan_df",ramdan_df)
         if ramdan_df.empty:
