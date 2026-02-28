@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
   const navItems = [
-  { label: 'Overview', to: '/' },
+  { label: 'Dashboard', to: '/' },
   { label: 'Metrics', to: '/metrics' },
   { label: 'Predictions', to: '/predictions' },
   { label: 'Recommendations', to: '/recommendations' },
@@ -25,7 +25,7 @@ const Sidebar = () => {
           key={item.to}
           to={item.to}
           className={({ isActive }) =>
-            `block transition-colors duration-200 hover:text-white ${
+            `block transition-colors duration-200 hover:text-white hover:bg-slate-800 rounded-[5px] ${
               isActive ? 'text-white font-semibold' : 'text-gray-400'
             }`
           }

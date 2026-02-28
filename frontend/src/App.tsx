@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import MainLayout from "./Hooks/MainLayout"
-import Overview from "./pages/Overview";
+import Overview from "./pages/Dashboard";
 import Metrics from "./pages/Metrics";
 import Predictions from "./pages/Predictions";
 import Recommendations from "./pages/Recommendations";
