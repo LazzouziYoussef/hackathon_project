@@ -19,7 +19,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from backend.app.database import engine
-from backend.app.api.endpoints import reccomend
+from backend.app.api.endpoints import reccomend,metrics
 
 
 @asynccontextmanager
@@ -39,6 +39,6 @@ app = FastAPI(
     lifespan=lifespan
 )
  
-app.include_router(reccomend.router,prefix="/api/recommand",tags=["recommendation"])
-
+app.include_router(reccomend.router,prefix="/api/v1",tags=["recommendation"])
+app.include_router(metrics.router,prefix="/api/v1",tags=["insert_metric"])
 
