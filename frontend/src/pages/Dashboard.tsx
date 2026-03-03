@@ -1,4 +1,5 @@
 import Header from "../components/Header";
+import UseMetrics from "../Hooks/UseMetrics";
 // Assuming you'll build these next:
 // import MetricCard from "../components/MetricCard"; 
 // import PredictionChart from "../components/PredictionChart";
