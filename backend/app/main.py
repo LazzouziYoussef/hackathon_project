@@ -19,8 +19,12 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from backend.app.database import engine
+<<<<<<< HEAD
 from backend.app.api.endpoints import reccomend,metrics,predictions
 import backend.app.models
+=======
+from backend.app.api.endpoints import reccomend,metrics
+>>>>>>> origin/FrontEndZaid
 
 
 @asynccontextmanager
@@ -42,4 +46,8 @@ app = FastAPI(
  
 app.include_router(reccomend.router,prefix="/api/v1",tags=["recommendation"])
 app.include_router(metrics.router,prefix="/api/v1",tags=["insert_metric"])
+<<<<<<< HEAD
 app.include_router(predictions.router,prefix="/api/v1",tags=["predictions"])
+=======
+
+>>>>>>> origin/FrontEndZaid
