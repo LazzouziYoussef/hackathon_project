@@ -15,11 +15,6 @@ async def get_db_for_tennant(tenant_id: str):
 
 @router.get("/reccomend/{tenant_id}")
 async def get_recommandtion(tenant_id:UUID, db : AsyncSession = Depends(get_db_for_tennant)):
-    ml_services = MLservice(db=db)
-    data = await ml_services.sync_and_predict(tenant_id)
-
-    history = await get_scalling_event(db,tenant_id)
-    print("history ",history)
-    print("data:",data)
-    return {"tenant_id": tenant_id, "recommendation": data,"history": history}
+    events = await get_scalling_event(db,tenant_id)
+    return {"tenant_id": tenant_id, "recommendation": events}
         
