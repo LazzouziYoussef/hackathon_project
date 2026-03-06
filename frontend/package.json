@@ -16,8 +16,12 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
+<<<<<<< HEAD
     "recharts": "^3.7.0",
     "tailwindcss": "^4.2.1"
+=======
+    "tailwindcss": "^4.1.18"
+>>>>>>> 32b7af7 (Add routing)
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

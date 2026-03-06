@@ -1,6 +1,7 @@
+<<<<<<< HEAD
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import MainLayout from "./Hooks/MainLayout"
-import Overview from "./pages/Overview";
+import Overview from "./pages/Dashboard";
 import Metrics from "./pages/Metrics";
 import Predictions from "./pages/Predictions";
 import Recommendations from "./pages/Recommendations";
@@ -25,4 +26,16 @@ function App() {
   );
 }
 
+=======
+import { Outlet, RouterProvider } from 'react-router-dom'
+import { Navbar } from './components/Navbar'
+function App(){
+   return(
+    <>
+     <Navbar></Navbar>
+     <Outlet></Outlet>
+    </>
+   )
+}
+>>>>>>> 32b7af7 (Add routing)
 export default App;
