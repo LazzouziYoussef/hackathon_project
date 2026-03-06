@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends,Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from backend.app.database import SessionLocal
@@ -8,7 +8,9 @@ from uuid import UUID
 
 router = APIRouter()
 
-async def get_db_for_tennant(tenant_id: str):
+async def get_db_for_tennant(request : Request ):
+    tenant_id = request.path_params.get("tennant_id") or request.path_params.get("tenant_id")
+    
     async with SessionLocal() as session:
         await session.execute( text(f"SET app.current_tenant_id = '{tenant_id}'"))
         yield session

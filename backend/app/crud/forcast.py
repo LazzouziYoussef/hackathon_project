@@ -41,11 +41,24 @@ async def get_upcoming_forecasts(db: AsyncSession, tenant_id: UUID):
         select(Forecast)
         .where(
             Forecast.tenant_id == tenant_id,
-            Forecast.forecast_time >= datetime.utcnow()
         )
         .order_by(Forecast.forecast_time.asc())
     )
-    return result.scalars().all()
+    rows = result.scalars().all()
+
+    return [
+        {
+            "id": str(row.id),
+            "tenant_id": str(row.tenant_id),
+            "forecast_time": row.forecast_time.isoformat(),
+            "metric_type": row.metric_type,
+            "predicted_value": row.predicted_value,
+            "confidence": row.confidence,
+            "model_version": row.model_version,
+            "created_at": row.created_at.isoformat() if row.created_at else None
+        }
+        for row in rows
+    ]
 
 
 async def delete_old_forecasts(db: AsyncSession, tenant_id: UUID):
