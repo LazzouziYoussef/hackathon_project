@@ -41,6 +41,7 @@ async def get_upcoming_forecasts(db: AsyncSession, tenant_id: UUID):
         select(Forecast)
         .where(
             Forecast.tenant_id == tenant_id,
+<<<<<<< HEAD
         )
         .order_by(Forecast.forecast_time.asc())
     )
@@ -59,6 +60,13 @@ async def get_upcoming_forecasts(db: AsyncSession, tenant_id: UUID):
         }
         for row in rows
     ]
+=======
+            Forecast.forecast_time >= datetime.utcnow()
+        )
+        .order_by(Forecast.forecast_time.asc())
+    )
+    return result.scalars().all()
+>>>>>>> 9cf69d5f1e4ccdbfee7f17db2f02c18605d1b063
 
 
 async def delete_old_forecasts(db: AsyncSession, tenant_id: UUID):
