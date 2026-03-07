@@ -2,7 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from datetime import datetime
 import pandas as pd
-
+import json
 async def get_metrices_as_df( db: AsyncSession,
     tenant_id: str,
     metric_type: str,
@@ -35,17 +35,27 @@ async def get_metrices_as_df( db: AsyncSession,
 
     return df
 
-
-async def insert_scaling_event(db: AsyncSession, event: dict):
+async def insert_Metric(db: AsyncSession, tenant_id, metrics: list):
     query = text("""
-        INSERT INTO scaling_events 
-            (id, tenant_id, event_type, current_replicas, recommended_replicas,
-             confidence, reason, cost_impact_usd, status)
-        VALUES 
-            (gen_random_uuid(), :tenant_id, :event_type, :current_replicas,
-             :recommended_replicas, :confidence, :reason, :cost_impact_usd, 'pending')
-        RETURNING id
+        INSERT INTO metrics(time, tenant_id,metric_type,value,tags)
+        values(:time,:tenant_id,:metric_type,:value,:tags)
     """)
-    result = await db.execute(query, event)
+    for metric in metrics:
+        time = metric["time"]
+        if hasattr(time,'tzinfo') and time.tzinfo is not None:
+            time = time.replace(tzinfo=None)
+        tags = metric.get("tags")
+        if tags is not None:
+            tags = json.dumps(tags)
+
+        await db.execute(query,{
+            "time" : time,
+            "metric_type" : metric["metric_type"],
+            "tenant_id": tenant_id,
+            "value" : metric["value"],
+            "tags" : tags
+        })
     await db.commit()
-    return result.scalar()       
+
+
+
