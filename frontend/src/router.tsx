@@ -7,7 +7,7 @@ import Approvals from "./pages/Approvals";
 import Simulator from "./pages/Simulator";
 import AuditLog from "./pages/Auditlog";
 import Dashboard from "./pages/Dashboard";
-
+import Login from "./pages/Login";
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -54,7 +54,11 @@ export const router = createBrowserRouter([
         handle:{ title : "AuditLog"},
 
       },
-      
+      {
+        path:"Login",
+        element:<Login/>,
+
+      }
     ],
   },
 ]);

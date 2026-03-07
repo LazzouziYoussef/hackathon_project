@@ -1,13 +1,15 @@
 
 import { useState, useRef, useEffect } from "react"; // Added hooks
 import { Search, User2Icon, LogIn, UserPlus } from "lucide-react";
-import { useMatches } from "react-router-dom";
+import { useMatches, useNavigate } from "react-router-dom";
+
 
 interface RouteHandle {
   title?: string;
 }
-
 const Header = () => {
+  const navigate =  useNavigate();
+
   const [isMenuOpen, setIsMenuOpen] = useState(false); // State to track the menu
   const menuRef = useRef<HTMLDivElement>(null); // To help close menu when clicking outside
 
@@ -58,11 +60,11 @@ const Header = () => {
         {/* Dropdown Menu */}
         {isMenuOpen && (
           <div className="absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in duration-150">
-            <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+            <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors hover:cursor-pointer" onClick={()=>{navigate('/Login')}}>
               <LogIn className="w-4 h-4" />
               Log In
             </button>
-            <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+            <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors hover:cursor-pointer">
               <UserPlus className="w-4 h-4" />
               Sign Up
             </button>
