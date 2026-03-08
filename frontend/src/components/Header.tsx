@@ -64,7 +64,7 @@ const Header = () => {
               <LogIn className="w-4 h-4" />
               Log In
             </button>
-            <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors hover:cursor-pointer">
+            <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors hover:cursor-pointer" onClick={()=>{navigate('/SignIn')}}>
               <UserPlus className="w-4 h-4" />
               Sign Up
             </button>

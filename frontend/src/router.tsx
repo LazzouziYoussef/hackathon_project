@@ -8,6 +8,7 @@ import Simulator from "./pages/Simulator";
 import AuditLog from "./pages/Auditlog";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
+import SignIn from "./pages/SignIn";
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -58,6 +59,10 @@ export const router = createBrowserRouter([
         path:"Login",
         element:<Login/>,
 
+      },
+      {
+        path:"SignIn",
+        element:<SignIn/>
       }
     ],
   },

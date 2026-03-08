@@ -1,5 +1,4 @@
 
-// Assuming you'll build these next:
 // import MetricCard from "../components/MetricCard"; 
 // import PredictionChart from "../components/PredictionChart";
 
@@ -7,7 +6,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 ">
       
-      <main className="p-8 space-y-8 max-w-7xl mx-auto">
+      <main className="p-8 space-y-8 max-w-7xl mx-auto ">
         <section>
           <h1 className="text-2xl font-bold text-white tracking-tight">
             Operational Overview
