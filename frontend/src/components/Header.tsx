@@ -1,3 +1,5 @@
+import { Search } from "lucide-react";
+import { useMatches } from "react-router-dom";
 
 import { useState, useRef, useEffect } from "react"; // Added hooks
 import { Search, User2Icon, LogIn, UserPlus } from "lucide-react";
